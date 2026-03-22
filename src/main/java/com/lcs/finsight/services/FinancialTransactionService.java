@@ -4,6 +4,7 @@ import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
 import com.lcs.finsight.exceptions.FinancialTransactionExceptions;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionCategory;
+import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionRepository;
 import com.lcs.finsight.utils.DateUtils;
 import org.springframework.stereotype.Service;
@@ -29,22 +30,29 @@ public class FinancialTransactionService {
     }
 
     @Transactional(readOnly = true)
-    public FinancialTransaction findById(Long id) {
-        return financialTransactionRepository.findById(id)
+    public FinancialTransaction findById(Long id, User user) {
+        FinancialTransaction transaction = financialTransactionRepository.findById(id)
                 .orElseThrow(() -> new FinancialTransactionExceptions.FinancialTransactionNotFoundException(id));
+
+        if (!transaction.getUser().getId().equals(user.getId())) {
+            throw new FinancialTransactionExceptions.FinancialTransactionNotFoundException(id);
+        }
+
+        return transaction;
     }
 
     @Transactional(readOnly = true)
-    public List<FinancialTransaction> findAll() {
-        return financialTransactionRepository.findAll();
+    public List<FinancialTransaction> findAllByUser(User user) {
+        return financialTransactionRepository.findAllByUser(user);
     }
 
     @Transactional
-    public FinancialTransaction create(FinancialTransactionRequestDto dto) {
-        FinancialTransactionCategory category = financialTransactionCategoryService.findById(dto.getCategoryId());
+    public FinancialTransaction create(FinancialTransactionRequestDto dto, User user) {
+        FinancialTransactionCategory category = financialTransactionCategoryService.findById(dto.getCategoryId(), user);
 
         FinancialTransaction financialTransaction = new FinancialTransaction();
 
+        financialTransaction.setUser(user);
         financialTransaction.setCategory(category);
         financialTransaction.setType(dto.getType());
         financialTransaction.setAmount(dto.getAmount());
@@ -58,11 +66,11 @@ public class FinancialTransactionService {
     }
 
     @Transactional
-    public FinancialTransaction update(Long id, FinancialTransactionRequestDto dto) {
+    public FinancialTransaction update(Long id, FinancialTransactionRequestDto dto, User user) {
         dateUtils.checkIfStartDateIsBeforeEndDate(dto.getStartDate(), dto.getEndDate());
 
-        FinancialTransaction existingTransaction = findById(id);
-        FinancialTransactionCategory category = financialTransactionCategoryService.findById(dto.getCategoryId());
+        FinancialTransaction existingTransaction = findById(id, user);
+        FinancialTransactionCategory category = financialTransactionCategoryService.findById(dto.getCategoryId(), user);
 
         existingTransaction.setCategory(category);
         existingTransaction.setType(dto.getType());
@@ -77,7 +85,8 @@ public class FinancialTransactionService {
     }
 
     @Transactional
-    public void delete(Long id) {
-        financialTransactionRepository.deleteById(id);
+    public void delete(Long id, User user) {
+        FinancialTransaction transaction = findById(id, user);
+        financialTransactionRepository.delete(transaction);
     }
 }

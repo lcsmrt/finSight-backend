@@ -2,12 +2,16 @@ package com.lcs.finsight.controllers;
 
 import com.lcs.finsight.dtos.request.FinancialTransactionCategoryRequestDto;
 import com.lcs.finsight.models.FinancialTransactionCategory;
+import com.lcs.finsight.models.User;
 import com.lcs.finsight.services.FinancialTransactionCategoryService;
+import com.lcs.finsight.services.UserService;
 import com.lcs.finsight.utils.ApiRoutes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,42 +22,55 @@ import java.util.List;
 public class FinancialTransactionCategoryController {
 
     private final FinancialTransactionCategoryService categoryService;
+    private final UserService userService;
 
-    public FinancialTransactionCategoryController(FinancialTransactionCategoryService categoryService) {
+    public FinancialTransactionCategoryController(FinancialTransactionCategoryService categoryService, UserService userService) {
         this.categoryService = categoryService;
+        this.userService = userService;
     }
 
     @Operation(summary = "Busca uma categoria de transação pelo ID")
     @GetMapping("/{id}")
-    public ResponseEntity<FinancialTransactionCategory> getCategory(@PathVariable Long id) {
-        return ResponseEntity.ok(categoryService.findById(id));
+    public ResponseEntity<FinancialTransactionCategory> getCategory(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        return ResponseEntity.ok(categoryService.findById(id, loggedUser));
     }
 
-    @Operation(summary = "Busca todas as categorias de transação")
+    @Operation(summary = "Busca todas as categorias de transação do usuário logado")
     @GetMapping
-    public ResponseEntity<List<FinancialTransactionCategory>> getAllCategories() {
-        List<FinancialTransactionCategory> categories = categoryService.findAll();
-        return ResponseEntity.ok(categories);
+    public ResponseEntity<List<FinancialTransactionCategory>> getAllCategories(@AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        return ResponseEntity.ok(categoryService.findAllByUser(loggedUser));
     }
 
     @Operation(summary = "Cria uma nova categoria de transação")
     @PostMapping
-    public ResponseEntity<FinancialTransactionCategory> createCategory(@RequestBody @Valid FinancialTransactionCategoryRequestDto dto) {
-        FinancialTransactionCategory createdCategory = categoryService.create(dto);
-        return ResponseEntity.status(201).body(createdCategory);
+    public ResponseEntity<FinancialTransactionCategory> createCategory(
+            @RequestBody @Valid FinancialTransactionCategoryRequestDto dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        return ResponseEntity.status(201).body(categoryService.create(dto, loggedUser));
     }
 
     @Operation(summary = "Atualiza uma categoria de transação")
     @PutMapping("/{id}")
-    public ResponseEntity<FinancialTransactionCategory> updateCategory(@PathVariable Long id, @RequestBody @Valid FinancialTransactionCategoryRequestDto dto) {
-        FinancialTransactionCategory updatedCategory = categoryService.update(id, dto);
-        return ResponseEntity.ok(updatedCategory);
+    public ResponseEntity<FinancialTransactionCategory> updateCategory(
+            @PathVariable Long id,
+            @RequestBody @Valid FinancialTransactionCategoryRequestDto dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        return ResponseEntity.ok(categoryService.update(id, dto, loggedUser));
     }
 
     @Operation(summary = "Deleta uma categoria de transação")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
-        categoryService.delete(id);
+    public ResponseEntity<Void> deleteCategory(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        categoryService.delete(id, loggedUser);
         return ResponseEntity.noContent().build();
     }
 }

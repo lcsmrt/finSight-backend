@@ -11,6 +11,10 @@ public class FinancialTransactionCategory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne
+    @JoinColumn(name = "user_id",  nullable = false)
+    private User user;
+
     private String description;
     private BigDecimal spendingLimit;
 
@@ -20,6 +24,10 @@ public class FinancialTransactionCategory {
     public Long getId() {
         return id;
     }
+
+    public User getUser() { return user; }
+
+    public void setUser(User user) { this.user = user; }
 
     public String getDescription() {
         return description;

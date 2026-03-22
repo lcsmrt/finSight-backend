@@ -3,6 +3,7 @@ package com.lcs.finsight.services;
 import com.lcs.finsight.dtos.request.FinancialTransactionCategoryRequestDto;
 import com.lcs.finsight.exceptions.FinancialTransactionCategoryExceptions;
 import com.lcs.finsight.models.FinancialTransactionCategory;
+import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionCategoryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,20 +20,27 @@ public class FinancialTransactionCategoryService {
     }
 
     @Transactional(readOnly = true)
-    public FinancialTransactionCategory findById(Long id) {
-        return categoryRepository.findById(id)
+    public FinancialTransactionCategory findById(Long id, User user) {
+        FinancialTransactionCategory category = categoryRepository.findById(id)
                 .orElseThrow(() -> new FinancialTransactionCategoryExceptions.FinancialTransactionCategoryNotFoundException(id));
+
+        if (!category.getUser().getId().equals(user.getId())) {
+            throw new FinancialTransactionCategoryExceptions.FinancialTransactionCategoryNotFoundException(id);
+        }
+
+        return category;
     }
 
     @Transactional(readOnly = true)
-    public List<FinancialTransactionCategory> findAll() {
-        return categoryRepository.findAll();
+    public List<FinancialTransactionCategory> findAllByUser(User user) {
+        return categoryRepository.findAllByUser(user);
     }
 
     @Transactional
-    public FinancialTransactionCategory create(FinancialTransactionCategoryRequestDto dto) {
+    public FinancialTransactionCategory create(FinancialTransactionCategoryRequestDto dto, User user) {
         FinancialTransactionCategory category = new FinancialTransactionCategory();
 
+        category.setUser(user);
         category.setDescription(dto.getDescription());
         category.setSpendingLimit(dto.getSpendingLimit());
 
@@ -40,8 +48,8 @@ public class FinancialTransactionCategoryService {
     }
 
     @Transactional
-    public FinancialTransactionCategory update(Long id, FinancialTransactionCategoryRequestDto dto) {
-        FinancialTransactionCategory existingCategory = findById(id);
+    public FinancialTransactionCategory update(Long id, FinancialTransactionCategoryRequestDto dto, User user) {
+        FinancialTransactionCategory existingCategory = findById(id, user);
 
         existingCategory.setDescription(dto.getDescription());
         existingCategory.setSpendingLimit(dto.getSpendingLimit());
@@ -50,7 +58,8 @@ public class FinancialTransactionCategoryService {
     }
 
     @Transactional
-    public void delete(Long id) {
-        categoryRepository.deleteById(id);
+    public void delete(Long id, User user) {
+        FinancialTransactionCategory category = findById(id, user);
+        categoryRepository.delete(category);
     }
 }

@@ -19,7 +19,6 @@ import java.util.List;
 @ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    // VALIDAÇÃO (@Valid)
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             @NonNull MethodArgumentNotValidException exception,
@@ -27,17 +26,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             @NonNull HttpStatusCode status,
             @NonNull WebRequest request
     ) {
-        List<FieldErrorDto> errors = exception.getBindingResult().getFieldErrors().stream().map(error -> new FieldErrorDto(error.getField(), error.getDefaultMessage())).toList();
+        List<FieldErrorDto> errors = exception.getBindingResult().getFieldErrors().stream()
+                .map(error -> new FieldErrorDto(error.getField(), error.getDefaultMessage()))
+                .toList();
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 "Erro de validação.",
                 ((ServletWebRequest) request).getRequest().getRequestURI(),
                 errors
         );
-
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
-    // AUTENTICAÇÃO (Spring Security)
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponseDto> handleBadCredentials(
             BadCredentialsException exception,
@@ -50,10 +49,33 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
     }
 
-    // USUÁRIO
-    @ExceptionHandler(UserExceptions.UserNotFoundException.class)
-    private ResponseEntity<ErrorResponseDto> handleUserNotFound(
-            UserExceptions.UserNotFoundException exception,
+    @ExceptionHandler(FinancialTransactionExceptions.FinancialTransactionNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> handleFinancialTransactionNotFound(
+            FinancialTransactionExceptions.FinancialTransactionNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler(FinancialTransactionCategoryExceptions.FinancialTransactionCategoryNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> handleFinancialTransactionCategoryNotFound(
+            FinancialTransactionCategoryExceptions.FinancialTransactionCategoryNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler({UserExceptions.UserNotFoundException.class, UserExceptions.UsernameNotFoundException.class})
+    public ResponseEntity<ErrorResponseDto> handleUserNotFound(
+            RuntimeException exception,
             HttpServletRequest request
     ) {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
@@ -64,7 +86,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(UserExceptions.EmailAlreadyUsedException.class)
-    private ResponseEntity<ErrorResponseDto> handleEmailAlreadyUsed(
+    public ResponseEntity<ErrorResponseDto> handleEmailAlreadyUsed(
             UserExceptions.EmailAlreadyUsedException exception,
             HttpServletRequest request
     ) {
@@ -72,18 +94,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 exception.getMessage(),
                 request.getRequestURI()
         );
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
     }
 
-    @ExceptionHandler(UserExceptions.UsernameNotFoundException.class)
-    private ResponseEntity<ErrorResponseDto> handleUsernameNotFound(
-            UserExceptions.UsernameNotFoundException exception,
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponseDto> handleUnexpected(
+            Exception exception,
             HttpServletRequest request
     ) {
+        logger.error("Erro inesperado: ", exception);
         ErrorResponseDto errorResponse = new ErrorResponseDto(
-                exception.getMessage(),
+                "Ocorreu um erro interno. Tente novamente mais tarde.",
                 request.getRequestURI()
         );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 }

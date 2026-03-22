@@ -13,7 +13,11 @@ public class FinancialTransaction {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "categoryId")
+    @JoinColumn(name = "user_id",   nullable = false)
+    private User user;
+
+    @ManyToOne
+    @JoinColumn(name = "category_id")
     private FinancialTransactionCategory category;
 
     @Enumerated(EnumType.STRING)
@@ -32,6 +36,10 @@ public class FinancialTransaction {
     public Long getId() {
         return id;
     }
+
+    public User getUser() {return user;}
+
+    public void setUser(User user) {this.user = user;}
 
     public FinancialTransactionCategory getCategory() {
         return category;
