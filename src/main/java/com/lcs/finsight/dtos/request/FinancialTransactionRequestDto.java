@@ -9,7 +9,6 @@ import java.time.LocalDate;
 
 public class FinancialTransactionRequestDto {
 
-    @NotNull(message = "O ID da categoria não pode ser nulo.")
     private Long categoryId;
 
     @NotNull(message = "O tipo de transação não pode ser nulo.")

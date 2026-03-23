@@ -48,9 +48,12 @@ public class FinancialTransactionService {
 
     @Transactional
     public FinancialTransaction create(FinancialTransactionRequestDto dto, User user) {
-        FinancialTransactionCategory category = financialTransactionCategoryService.findById(dto.getCategoryId(), user);
+        dateUtils.checkIfStartDateIsBeforeEndDate(dto.getStartDate(), dto.getEndDate());
 
         FinancialTransaction financialTransaction = new FinancialTransaction();
+        FinancialTransactionCategory category = dto.getCategoryId() != null
+                ? financialTransactionCategoryService.findById(dto.getCategoryId(), user)
+                : null;
 
         financialTransaction.setUser(user);
         financialTransaction.setCategory(category);
@@ -70,7 +73,9 @@ public class FinancialTransactionService {
         dateUtils.checkIfStartDateIsBeforeEndDate(dto.getStartDate(), dto.getEndDate());
 
         FinancialTransaction existingTransaction = findById(id, user);
-        FinancialTransactionCategory category = financialTransactionCategoryService.findById(dto.getCategoryId(), user);
+        FinancialTransactionCategory category = dto.getCategoryId() != null
+                ? financialTransactionCategoryService.findById(dto.getCategoryId(), user)
+                : null;
 
         existingTransaction.setCategory(category);
         existingTransaction.setType(dto.getType());

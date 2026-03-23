@@ -13,11 +13,11 @@ public class FinancialTransaction {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id",   nullable = false)
+    @JoinColumn(nullable = false, foreignKey = @ForeignKey(name = "fk_financial_transactions_users"))
     private User user;
 
     @ManyToOne
-    @JoinColumn(name = "category_id")
+    @JoinColumn(foreignKey = @ForeignKey(name = "fk_financial_transactions_financial_transaction_categories"))
     private FinancialTransactionCategory category;
 
     @Enumerated(EnumType.STRING)
@@ -37,9 +37,13 @@ public class FinancialTransaction {
         return id;
     }
 
-    public User getUser() {return user;}
+    public User getUser() {
+        return user;
+    }
 
-    public void setUser(User user) {this.user = user;}
+    public void setUser(User user) {
+        this.user = user;
+    }
 
     public FinancialTransactionCategory getCategory() {
         return category;

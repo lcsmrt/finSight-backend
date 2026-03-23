@@ -12,7 +12,7 @@ public class FinancialTransactionCategory {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id",  nullable = false)
+    @JoinColumn(nullable = false, foreignKey = @ForeignKey(name = "fk_financial_transaction_categories_users"))
     private User user;
 
     private String description;

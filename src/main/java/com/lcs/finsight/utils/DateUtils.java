@@ -7,9 +7,9 @@ import java.time.LocalDate;
 @Component
 public class DateUtils {
     public void checkIfStartDateIsBeforeEndDate(LocalDate startDate, LocalDate endDate) {
-        boolean isAfter = startDate.isAfter(endDate);
+        if (endDate == null) return;
 
-        if(isAfter) {
+        if (startDate.isAfter(endDate)) {
             throw new IllegalArgumentException("A data inicial não pode ser maior que a data final.");
         }
     }
