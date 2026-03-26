@@ -1,16 +1,22 @@
 package com.lcs.finsight.services;
 
+import com.lcs.finsight.dtos.request.FinancialTransactionFilterDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
 import com.lcs.finsight.exceptions.FinancialTransactionExceptions;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionCategory;
 import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionRepository;
+import com.lcs.finsight.specifications.FinancialTransactionSpecification;
 import com.lcs.finsight.utils.DateUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class FinancialTransactionService {
@@ -41,9 +47,28 @@ public class FinancialTransactionService {
         return transaction;
     }
 
+    private static final Set<String> SORTABLE_FIELDS = Set.of("startDate", "endDate", "amount", "description");
+
     @Transactional(readOnly = true)
     public List<FinancialTransaction> findAllByUser(User user) {
         return financialTransactionRepository.findAllByUser(user);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<FinancialTransaction> findAllByUserPaged(FinancialTransactionFilterDto filter, User user) {
+        PageRequest pageable = filter.toPageable(SORTABLE_FIELDS);
+
+        Specification<FinancialTransaction> spec = Specification.allOf(
+                FinancialTransactionSpecification.belongsToUser(user),
+                FinancialTransactionSpecification.typeEquals(filter.getType()),
+                FinancialTransactionSpecification.categoryEquals(filter.getCategoryId()),
+                FinancialTransactionSpecification.descriptionContains(filter.getDescription()),
+                FinancialTransactionSpecification.startDateFrom(filter.getStartDateFrom()),
+                FinancialTransactionSpecification.startDateTo(filter.getStartDateTo()),
+                FinancialTransactionSpecification.amountMin(filter.getAmountMin()),
+                FinancialTransactionSpecification.amountMax(filter.getAmountMax()));
+
+        return financialTransactionRepository.findAll(spec, pageable);
     }
 
     @Transactional
