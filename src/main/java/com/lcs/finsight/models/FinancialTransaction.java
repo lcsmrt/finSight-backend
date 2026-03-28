@@ -6,7 +6,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "financial_transactions")
+@Table(name = "financial_transactions", indexes = {
+        @Index(name = "idx_financial_transactions_user_id", columnList = "user_id"),
+        @Index(name = "idx_financial_transactions_start_date", columnList = "start_date"),
+        @Index(name = "idx_financial_transactions_user_id_start_date", columnList = "user_id, start_date"),
+})
 public class FinancialTransaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,6 +29,7 @@ public class FinancialTransaction {
 
     private BigDecimal amount;
     private String description;
+    private String externalId;
     private String frequency;
     private Integer parcelsNumber;
     private LocalDate startDate;
@@ -75,6 +80,14 @@ public class FinancialTransaction {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getExternalId() {
+        return externalId;
+    }
+
+    public void setExternalId(String externalId) {
+        this.externalId = externalId;
     }
 
     public String getFrequency() {

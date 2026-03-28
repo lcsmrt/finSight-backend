@@ -11,12 +11,17 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 @Repository
 public interface FinancialTransactionRepository extends JpaRepository<FinancialTransaction, Long>, JpaSpecificationExecutor<FinancialTransaction> {
 
     List<FinancialTransaction> findAllByUser(User user);
+
+    @Query("SELECT ft.externalId FROM FinancialTransaction ft WHERE ft.user = :user AND ft.externalId IN :externalIds")
+    Set<String> findExistingExternalIds(@Param("user") User user, @Param("externalIds") Collection<String> externalIds);
 
     @Query("SELECT COALESCE(SUM(ft.amount), 0) FROM FinancialTransaction ft " +
            "WHERE ft.user = :user AND ft.type = :type " +

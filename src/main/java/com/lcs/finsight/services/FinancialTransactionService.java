@@ -139,6 +139,9 @@ public class FinancialTransactionService {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
             List<FinancialTransaction> transactions = new ArrayList<>();
 
+            record ParsedRow(String externalId, LocalDate date, BigDecimal rawAmount, String description) {}
+            List<ParsedRow> parsed = new ArrayList<>();
+
             for (int i = 1; i < lines.size(); i++) {
                 String line = lines.get(i).trim();
                 if (line.isBlank()) continue;
@@ -146,18 +149,29 @@ public class FinancialTransactionService {
                 String[] parts = line.split(",", 4);
                 if (parts.length < 4) continue;
 
-                LocalDate date = LocalDate.parse(parts[0].trim(), formatter);
-                BigDecimal rawAmount = new BigDecimal(parts[1].trim());
-                String description = parts[3].trim();
+                parsed.add(new ParsedRow(
+                        parts[2].trim(),
+                        LocalDate.parse(parts[0].trim(), formatter),
+                        new BigDecimal(parts[1].trim()),
+                        parts[3].trim()
+                ));
+            }
+
+            Set<String> existingIds = financialTransactionRepository.findExistingExternalIds(
+                    user, parsed.stream().map(ParsedRow::externalId).toList());
+
+            for (ParsedRow row : parsed) {
+                if (existingIds.contains(row.externalId())) continue;
 
                 FinancialTransaction t = new FinancialTransaction();
                 t.setUser(user);
-                t.setStartDate(date);
-                t.setAmount(rawAmount.abs());
-                t.setType(rawAmount.compareTo(BigDecimal.ZERO) >= 0
+                t.setExternalId(row.externalId());
+                t.setStartDate(row.date());
+                t.setAmount(row.rawAmount().abs());
+                t.setType(row.rawAmount().compareTo(BigDecimal.ZERO) >= 0
                         ? FinancialTransactionType.CREDIT
                         : FinancialTransactionType.DEBIT);
-                t.setDescription(description);
+                t.setDescription(row.description());
 
                 transactions.add(t);
             }

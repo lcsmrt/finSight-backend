@@ -39,7 +39,7 @@ public class FinancialTransactionCategoryController {
         return ResponseEntity.ok(new FinancialTransactionCategoryResponseDto(categoryService.findById(id, loggedUser)));
     }
 
-    @Operation(summary = "Busca todas as categorias de transação do usuário logado")
+    @Operation(summary = "Busca todas as categorias de transação do usuário autenticado")
     @GetMapping
     public ResponseEntity<PagedResponseDto<FinancialTransactionCategoryResponseDto>> getAllCategories(
             @ParameterObject @ModelAttribute @Valid FinancialTransactionCategoryFilterDto filter,
@@ -50,7 +50,7 @@ public class FinancialTransactionCategoryController {
         ));
     }
 
-    @Operation(summary = "Cria uma nova categoria de transação")
+    @Operation(summary = "Cria uma nova categoria de transação para o usuário autenticado")
     @PostMapping
     public ResponseEntity<FinancialTransactionCategoryResponseDto> createCategory(
             @RequestBody @Valid FinancialTransactionCategoryRequestDto dto,
@@ -59,7 +59,7 @@ public class FinancialTransactionCategoryController {
         return ResponseEntity.status(201).body(new FinancialTransactionCategoryResponseDto(categoryService.create(dto, loggedUser)));
     }
 
-    @Operation(summary = "Atualiza uma categoria de transação")
+    @Operation(summary = "Atualiza uma categoria de transação para o usuário autenticado")
     @PutMapping("/{id}")
     public ResponseEntity<FinancialTransactionCategoryResponseDto> updateCategory(
             @PathVariable Long id,
