@@ -2,6 +2,7 @@ package com.lcs.finsight.controllers;
 
 import com.lcs.finsight.dtos.request.FinancialTransactionFilterDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
+import com.lcs.finsight.dtos.response.FinancialTransactionImportResponseDto;
 import com.lcs.finsight.dtos.response.FinancialTransactionResponseDto;
 import com.lcs.finsight.dtos.response.PagedResponseDto;
 import com.lcs.finsight.models.User;
@@ -17,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "Transações Financeiras")
 @RestController
@@ -68,6 +70,16 @@ public class FinancialTransactionController {
             @AuthenticationPrincipal UserDetails userDetails) {
         User loggedUser = userService.findByEmail(userDetails.getUsername());
         return ResponseEntity.ok(new FinancialTransactionResponseDto(financialTransactionService.update(id, dto, loggedUser)));
+    }
+
+    @Operation(summary = "Importa transações de um CSV do Nubank")
+    @PostMapping("/import")
+    public ResponseEntity<FinancialTransactionImportResponseDto> importCsv(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        int imported = financialTransactionService.importFromNubankCsv(file, loggedUser);
+        return ResponseEntity.ok(new FinancialTransactionImportResponseDto(imported));
     }
 
     @Operation(summary = "Deleta uma transação")

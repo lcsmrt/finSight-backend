@@ -5,6 +5,7 @@ import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
 import com.lcs.finsight.exceptions.FinancialTransactionExceptions;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionCategory;
+import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionRepository;
 import com.lcs.finsight.specifications.FinancialTransactionSpecification;
@@ -14,7 +15,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -118,5 +127,45 @@ public class FinancialTransactionService {
     public void delete(Long id, User user) {
         FinancialTransaction transaction = findById(id, user);
         financialTransactionRepository.delete(transaction);
+    }
+
+    @Transactional
+    public int importFromNubankCsv(MultipartFile file, User user) {
+        try {
+            List<String> lines = new BufferedReader(
+                    new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8)
+            ).lines().toList();
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            List<FinancialTransaction> transactions = new ArrayList<>();
+
+            for (int i = 1; i < lines.size(); i++) {
+                String line = lines.get(i).trim();
+                if (line.isBlank()) continue;
+
+                String[] parts = line.split(",", 4);
+                if (parts.length < 4) continue;
+
+                LocalDate date = LocalDate.parse(parts[0].trim(), formatter);
+                BigDecimal rawAmount = new BigDecimal(parts[1].trim());
+                String description = parts[3].trim();
+
+                FinancialTransaction t = new FinancialTransaction();
+                t.setUser(user);
+                t.setStartDate(date);
+                t.setAmount(rawAmount.abs());
+                t.setType(rawAmount.compareTo(BigDecimal.ZERO) >= 0
+                        ? FinancialTransactionType.CREDIT
+                        : FinancialTransactionType.DEBIT);
+                t.setDescription(description);
+
+                transactions.add(t);
+            }
+
+            financialTransactionRepository.saveAll(transactions);
+            return transactions.size();
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao processar o arquivo CSV.", e);
+        }
     }
 }

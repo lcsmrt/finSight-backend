@@ -9,9 +9,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Tag(name = "Usuários")
 @RestController
@@ -24,24 +24,6 @@ public class UserController {
         this.userService = userService;
     }
 
-    @Operation(summary = "Busca um usuário pelo ID")
-    @GetMapping("/{id}")
-    public ResponseEntity<UserResponseDto> getUser(@PathVariable Long id) {
-        User user = userService.findById(id);
-        UserResponseDto response = userService.mapToResponseDTO(user);
-        return ResponseEntity.ok(response);
-    }
-
-    @Operation(summary = "Busca todos os usuários")
-    @GetMapping
-    public ResponseEntity<List<UserResponseDto>> getAllUsers() {
-        List<User> users = userService.findAll();
-        List<UserResponseDto> response = users.stream()
-                .map(userService::mapToResponseDTO)
-                .toList();
-        return ResponseEntity.ok(response);
-    }
-
     @Operation(summary = "Cria um novo usuário")
     @PostMapping
     public ResponseEntity<UserResponseDto> createUser(@RequestBody @Valid UserRequestDto dto) {
@@ -50,18 +32,14 @@ public class UserController {
         return ResponseEntity.status(201).body(response);
     }
 
-    @Operation(summary = "Atualiza um usuário")
-    @PutMapping("/{id}")
-    public ResponseEntity<UserResponseDto> updateUser(@PathVariable Long id, @RequestBody @Valid UserRequestDto dto) {
-        User updatedUser = userService.update(id, dto);
+    @Operation(summary = "Atualiza o usuário autenticado")
+    @PutMapping
+    public ResponseEntity<UserResponseDto> updateUser(
+            @RequestBody @Valid UserRequestDto dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        User updatedUser = userService.update(loggedUser, dto);
         UserResponseDto response = userService.mapToResponseDTO(updatedUser);
         return ResponseEntity.ok(response);
-    }
-
-    @Operation(summary = "Deleta um usuário")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        userService.delete(id);
-        return ResponseEntity.noContent().build();
     }
 }

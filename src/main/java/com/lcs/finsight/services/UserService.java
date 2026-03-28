@@ -9,7 +9,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -37,11 +36,6 @@ public class UserService {
                 .orElseThrow(() -> new UserExceptions.UsernameNotFoundException(email));
     }
 
-    @Transactional(readOnly = true)
-    public List<User> findAll() {
-        return userRepository.findAll();
-    }
-
     @Transactional
     public User create(UserRequestDto dto) {
         Optional<User> existingUser = userRepository.findByEmail(dto.getEmail());
@@ -59,19 +53,13 @@ public class UserService {
     }
 
     @Transactional
-    public User update(Long id, UserRequestDto dto) {
-        User existingUser = findById(id);
-        existingUser.setName(dto.getName());
-        existingUser.setEmail(dto.getEmail());
+    public User update(User user, UserRequestDto dto) {
+        user.setName(dto.getName());
+        user.setEmail(dto.getEmail());
         String encryptedPassword = encoder.encode(dto.getPassword());
-        existingUser.setPassword(encryptedPassword);
+        user.setPassword(encryptedPassword);
 
-        return userRepository.save(existingUser);
-    }
-
-    @Transactional
-    public void delete(Long id) {
-        userRepository.deleteById(id);
+        return userRepository.save(user);
     }
 
     public UserResponseDto mapToResponseDTO(User user) {
