@@ -15,6 +15,9 @@ public class FinancialTransactionCategory {
     @JoinColumn(nullable = false, foreignKey = @ForeignKey(name = "fk_financial_transaction_categories_users"))
     private User user;
 
+    @Enumerated(EnumType.STRING)
+    private FinancialTransactionType type;
+
     private String description;
     private BigDecimal spendingLimit;
 
@@ -28,6 +31,14 @@ public class FinancialTransactionCategory {
     public User getUser() { return user; }
 
     public void setUser(User user) { this.user = user; }
+
+    public FinancialTransactionType getType() {
+        return type;
+    }
+
+    public void setType(FinancialTransactionType type) {
+        this.type = type;
+    }
 
     public String getDescription() {
         return description;

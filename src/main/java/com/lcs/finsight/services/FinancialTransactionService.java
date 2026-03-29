@@ -89,6 +89,10 @@ public class FinancialTransactionService {
                 ? financialTransactionCategoryService.findById(dto.getCategoryId(), user)
                 : null;
 
+        if (category != null && category.getType() != dto.getType()) {
+            throw new IllegalArgumentException("A categoria não pertence ao tipo da transação.");
+        }
+
         financialTransaction.setUser(user);
         financialTransaction.setCategory(category);
         financialTransaction.setType(dto.getType());
@@ -110,6 +114,10 @@ public class FinancialTransactionService {
         FinancialTransactionCategory category = dto.getCategoryId() != null
                 ? financialTransactionCategoryService.findById(dto.getCategoryId(), user)
                 : null;
+
+        if (category != null && category.getType() != dto.getType()) {
+            throw new IllegalArgumentException("A categoria não pertence ao tipo da transação.");
+        }
 
         existingTransaction.setCategory(category);
         existingTransaction.setType(dto.getType());

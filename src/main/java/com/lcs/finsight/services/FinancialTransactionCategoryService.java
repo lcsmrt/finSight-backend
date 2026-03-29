@@ -4,6 +4,7 @@ import com.lcs.finsight.dtos.request.FinancialTransactionCategoryFilterDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionCategoryRequestDto;
 import com.lcs.finsight.exceptions.FinancialTransactionCategoryExceptions;
 import com.lcs.finsight.models.FinancialTransactionCategory;
+import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionCategoryRepository;
 import com.lcs.finsight.specifications.FinancialTransactionCategorySpecification;
@@ -50,7 +51,8 @@ public class FinancialTransactionCategoryService {
 
         Specification<FinancialTransactionCategory> spec = Specification.allOf(
                 FinancialTransactionCategorySpecification.belongsToUser(user),
-                FinancialTransactionCategorySpecification.descriptionContains(filter.getDescription()));
+                FinancialTransactionCategorySpecification.descriptionContains(filter.getDescription()),
+                FinancialTransactionCategorySpecification.typeEquals(filter.getType()));
 
         return categoryRepository.findAll(spec, pageable);
     }
@@ -60,8 +62,9 @@ public class FinancialTransactionCategoryService {
         FinancialTransactionCategory category = new FinancialTransactionCategory();
 
         category.setUser(user);
+        category.setType(dto.getType());
         category.setDescription(dto.getDescription());
-        category.setSpendingLimit(dto.getSpendingLimit());
+        category.setSpendingLimit(dto.getType() == FinancialTransactionType.CREDIT ? null : dto.getSpendingLimit());
 
         return categoryRepository.save(category);
     }
@@ -70,8 +73,9 @@ public class FinancialTransactionCategoryService {
     public FinancialTransactionCategory update(Long id, FinancialTransactionCategoryRequestDto dto, User user) {
         FinancialTransactionCategory existingCategory = findById(id, user);
 
+        existingCategory.setType(dto.getType());
         existingCategory.setDescription(dto.getDescription());
-        existingCategory.setSpendingLimit(dto.getSpendingLimit());
+        existingCategory.setSpendingLimit(dto.getType() == FinancialTransactionType.CREDIT ? null : dto.getSpendingLimit());
 
         return categoryRepository.save(existingCategory);
     }
