@@ -17,7 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "Categorias de Transações Financeiras")
+@Tag(name = "Financial Transaction Categories")
 @RestController
 @RequestMapping(ApiRoutes.FINANCIAL_TRANSACTION_CATEGORY)
 public class FinancialTransactionCategoryController {
@@ -30,7 +30,7 @@ public class FinancialTransactionCategoryController {
         this.userService = userService;
     }
 
-    @Operation(summary = "Busca uma categoria de transação pelo ID")
+    @Operation(summary = "Fetches a transaction category by ID")
     @GetMapping("/{id}")
     public ResponseEntity<FinancialTransactionCategoryResponseDto> getCategory(
             @PathVariable Long id,
@@ -39,7 +39,7 @@ public class FinancialTransactionCategoryController {
         return ResponseEntity.ok(new FinancialTransactionCategoryResponseDto(categoryService.findById(id, loggedUser)));
     }
 
-    @Operation(summary = "Busca todas as categorias de transação do usuário autenticado")
+    @Operation(summary = "Fetches all transaction categories for the authenticated user")
     @GetMapping
     public ResponseEntity<PagedResponseDto<FinancialTransactionCategoryResponseDto>> getAllCategories(
             @ParameterObject @ModelAttribute @Valid FinancialTransactionCategoryFilterDto filter,
@@ -50,7 +50,7 @@ public class FinancialTransactionCategoryController {
         ));
     }
 
-    @Operation(summary = "Cria uma nova categoria de transação para o usuário autenticado")
+    @Operation(summary = "Creates a new transaction category for the authenticated user")
     @PostMapping
     public ResponseEntity<FinancialTransactionCategoryResponseDto> createCategory(
             @RequestBody @Valid FinancialTransactionCategoryRequestDto dto,
@@ -59,7 +59,7 @@ public class FinancialTransactionCategoryController {
         return ResponseEntity.status(201).body(new FinancialTransactionCategoryResponseDto(categoryService.create(dto, loggedUser)));
     }
 
-    @Operation(summary = "Atualiza uma categoria de transação para o usuário autenticado")
+    @Operation(summary = "Updates a transaction category for the authenticated user")
     @PutMapping("/{id}")
     public ResponseEntity<FinancialTransactionCategoryResponseDto> updateCategory(
             @PathVariable Long id,
@@ -69,7 +69,7 @@ public class FinancialTransactionCategoryController {
         return ResponseEntity.ok(new FinancialTransactionCategoryResponseDto(categoryService.update(id, dto, loggedUser)));
     }
 
-    @Operation(summary = "Deleta uma categoria de transação")
+    @Operation(summary = "Deletes a transaction category")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCategory(
             @PathVariable Long id,

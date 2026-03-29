@@ -10,16 +10,16 @@ import java.util.Set;
 
 public abstract class PaginatedFilterDto {
 
-    @Min(value = 0, message = "O número da página não pode ser negativo.")
+    @Min(value = 0, message = "Page number cannot be negative.")
     private int page = 0;
 
-    @Min(value = 1, message = "O tamanho da página deve ser no mínimo 1.")
-    @Max(value = 100, message = "O tamanho da página deve ser no máximo 100.")
+    @Min(value = 1, message = "Page size must be at least 1.")
+    @Max(value = 100, message = "Page size must be at most 100.")
     private int size = 10;
 
     private String sortBy;
 
-    @Pattern(regexp = "asc|desc", flags = Pattern.Flag.CASE_INSENSITIVE, message = "A direção de ordenação deve ser 'asc' ou 'desc'.")
+    @Pattern(regexp = "asc|desc", flags = Pattern.Flag.CASE_INSENSITIVE, message = "Sort direction must be 'asc' or 'desc'.")
     private String sortDirection;
 
     protected PaginatedFilterDto(String defaultSortBy, String defaultSortDirection) {
@@ -29,7 +29,7 @@ public abstract class PaginatedFilterDto {
 
     public PageRequest toPageable(Set<String> allowedSortFields) {
         if (!allowedSortFields.contains(sortBy)) {
-            throw new IllegalArgumentException("Campo de ordenação inválido: " + sortBy);
+            throw new IllegalArgumentException("Invalid sort field: " + sortBy);
         }
         Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
         return PageRequest.of(page, size, sort);

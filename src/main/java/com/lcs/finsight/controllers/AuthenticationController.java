@@ -16,7 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "Autenticação")
+@Tag(name = "Authentication")
 @RestController
 @RequestMapping(ApiRoutes.AUTH)
 public class AuthenticationController {
@@ -29,7 +29,7 @@ public class AuthenticationController {
         this.userService = userService;
     }
 
-    @Operation(summary = "Autentica um usuário")
+    @Operation(summary = "Authenticates a user")
     @PostMapping("/login")
     public ResponseEntity<AuthenticationResponseDto> login(@RequestBody @Valid LoginRequestDto dto) {
         String token = authenticationService.authenticate(dto);
@@ -37,7 +37,7 @@ public class AuthenticationController {
         return  ResponseEntity.ok(new AuthenticationResponseDto(token));
     }
 
-    @Operation(summary = "Retorna os dados do usuário autenticado")
+    @Operation(summary = "Returns the authenticated user's data")
     @GetMapping("/profile")
     public ResponseEntity<UserResponseDto> getUser(@AuthenticationPrincipal UserDetails userDetails) {
         User user = userService.findByEmail(userDetails.getUsername());

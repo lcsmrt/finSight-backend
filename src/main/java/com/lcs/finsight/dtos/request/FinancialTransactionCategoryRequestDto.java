@@ -8,10 +8,10 @@ import java.math.BigDecimal;
 
 public class FinancialTransactionCategoryRequestDto {
 
-	@NotNull(message = "O tipo não pode ser nulo.")
+	@NotNull(message = "Type cannot be null.")
 	private FinancialTransactionType type;
 
-	@NotBlank(message = "A descrição não pode ser vazia.")
+	@NotBlank(message = "Description cannot be blank.")
 	private String description;
 
 	private BigDecimal spendingLimit;

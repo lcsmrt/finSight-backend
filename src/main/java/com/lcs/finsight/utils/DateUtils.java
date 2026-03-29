@@ -10,7 +10,7 @@ public class DateUtils {
         if (endDate == null) return;
 
         if (startDate.isAfter(endDate)) {
-            throw new IllegalArgumentException("A data inicial não pode ser maior que a data final.");
+            throw new IllegalArgumentException("Start date cannot be after end date.");
         }
     }
 }

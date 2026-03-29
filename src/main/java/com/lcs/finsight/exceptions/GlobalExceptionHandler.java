@@ -30,7 +30,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .map(error -> new FieldErrorDto(error.getField(), error.getDefaultMessage()))
                 .toList();
         ErrorResponseDto errorResponse = new ErrorResponseDto(
-                "Erro de validação.",
+                "Validation error.",
                 ((ServletWebRequest) request).getRequest().getRequestURI(),
                 errors
         );
@@ -43,7 +43,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpServletRequest request
     ) {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
-                "Usuário ou senha inválidos.",
+                "Invalid username or password.",
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
@@ -114,9 +114,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
-        logger.error("Erro inesperado: ", exception);
+        logger.error("Unexpected error: ", exception);
         ErrorResponseDto errorResponse = new ErrorResponseDto(
-                "Ocorreu um erro interno. Tente novamente mais tarde.",
+                "An internal error occurred. Please try again later.",
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);

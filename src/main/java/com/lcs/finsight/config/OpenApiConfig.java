@@ -15,7 +15,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("FinSight API")
                         .version("v0.0.0")
-                        .description("API para gerenciamento de finanças pessoais.")
+                        .description("API for personal finance management.")
                         .contact(new Contact().name("Lucas Martins").email("lucas.mrt.dev@gmail.com"))
                         .license(new License().name("MIT License").url("https://opensource.org/licenses/MIT"))
                 );

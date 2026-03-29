@@ -28,7 +28,7 @@ public class DashboardController {
         this.userService = userService;
     }
 
-    @Operation(summary = "Retorna o resumo financeiro do usuário autenticado")
+    @Operation(summary = "Returns the financial summary for the authenticated user")
     @GetMapping
     public ResponseEntity<DashboardSummaryDto> getSummary(
             @ParameterObject @ModelAttribute @Valid DashboardFilterDto filter,

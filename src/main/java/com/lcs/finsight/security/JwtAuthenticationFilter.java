@@ -59,7 +59,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception exception) {
-            logger.warn("Não foi possível autenticar via JWT", exception);
+            logger.warn("Could not authenticate via JWT", exception);
         }
 
         filterChain.doFilter(request, response);

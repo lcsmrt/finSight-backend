@@ -20,7 +20,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-@Tag(name = "Transações Financeiras")
+@Tag(name = "Financial Transactions")
 @RestController
 @RequestMapping(ApiRoutes.FINANCIAL_TRANSACTION)
 public class FinancialTransactionController {
@@ -33,7 +33,7 @@ public class FinancialTransactionController {
         this.userService = userService;
     }
 
-    @Operation(summary = "Busca uma transação pelo ID")
+    @Operation(summary = "Fetches a transaction by ID")
     @GetMapping("/{id}")
     public ResponseEntity<FinancialTransactionResponseDto> getTransaction(
             @PathVariable Long id,
@@ -42,7 +42,7 @@ public class FinancialTransactionController {
         return ResponseEntity.ok(new FinancialTransactionResponseDto(financialTransactionService.findById(id, loggedUser)));
     }
 
-    @Operation(summary = "Busca todas as transações do usuário logado")
+    @Operation(summary = "Fetches all transactions for the logged-in user")
     @GetMapping
     public ResponseEntity<PagedResponseDto<FinancialTransactionResponseDto>> getAllTransactions(
             @ParameterObject @ModelAttribute @Valid FinancialTransactionFilterDto filter,
@@ -53,7 +53,7 @@ public class FinancialTransactionController {
         ));
     }
 
-    @Operation(summary = "Cria uma nova transação")
+    @Operation(summary = "Creates a new transaction")
     @PostMapping
     public ResponseEntity<FinancialTransactionResponseDto> createTransaction(
             @RequestBody @Valid FinancialTransactionRequestDto dto,
@@ -62,7 +62,7 @@ public class FinancialTransactionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(new FinancialTransactionResponseDto(financialTransactionService.create(dto, loggedUser)));
     }
 
-    @Operation(summary = "Atualiza uma transação")
+    @Operation(summary = "Updates a transaction")
     @PutMapping("/{id}")
     public ResponseEntity<FinancialTransactionResponseDto> updateTransaction(
             @PathVariable Long id,
@@ -72,7 +72,7 @@ public class FinancialTransactionController {
         return ResponseEntity.ok(new FinancialTransactionResponseDto(financialTransactionService.update(id, dto, loggedUser)));
     }
 
-    @Operation(summary = "Importa transações de um CSV do Nubank")
+    @Operation(summary = "Imports transactions from a Nubank CSV file")
     @PostMapping("/import")
     public ResponseEntity<FinancialTransactionImportResponseDto> importCsv(
             @RequestParam("file") MultipartFile file,
@@ -82,7 +82,7 @@ public class FinancialTransactionController {
         return ResponseEntity.ok(new FinancialTransactionImportResponseDto(imported));
     }
 
-    @Operation(summary = "Deleta uma transação")
+    @Operation(summary = "Deletes a transaction")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTransaction(
             @PathVariable Long id,

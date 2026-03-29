@@ -5,14 +5,14 @@ import jakarta.validation.constraints.NotBlank;
 
 public class UserRequestDto {
 
-    @NotBlank(message = "O nome do usuário não pode ser vazio.")
+    @NotBlank(message = "User name cannot be blank.")
     private String name;
 
-    @NotBlank(message = "O email do usuário não pode ser vazio.")
-    @Email(message = "Formato de e-mail inválido.")
+    @NotBlank(message = "User email cannot be blank.")
+    @Email(message = "Invalid email format.")
     private String email;
 
-    @NotBlank(message = "A senha do usuário não pode ser vazia.")
+    @NotBlank(message = "User password cannot be blank.")
     private String password;
 
     public String getName() {

@@ -13,7 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "Usuários")
+@Tag(name = "Users")
 @RestController
 @RequestMapping(ApiRoutes.USER)
 public class UserController {
@@ -24,7 +24,7 @@ public class UserController {
         this.userService = userService;
     }
 
-    @Operation(summary = "Cria um novo usuário")
+    @Operation(summary = "Creates a new user")
     @PostMapping
     public ResponseEntity<UserResponseDto> createUser(@RequestBody @Valid UserRequestDto dto) {
         User createdUser = userService.create(dto);
@@ -32,7 +32,7 @@ public class UserController {
         return ResponseEntity.status(201).body(response);
     }
 
-    @Operation(summary = "Atualiza o usuário autenticado")
+    @Operation(summary = "Updates the authenticated user")
     @PutMapping
     public ResponseEntity<UserResponseDto> updateUser(
             @RequestBody @Valid UserRequestDto dto,

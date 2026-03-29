@@ -90,7 +90,7 @@ public class FinancialTransactionService {
                 : null;
 
         if (category != null && category.getType() != dto.getType()) {
-            throw new IllegalArgumentException("A categoria não pertence ao tipo da transação.");
+            throw new IllegalArgumentException("Category does not match the transaction type.");
         }
 
         financialTransaction.setUser(user);
@@ -116,7 +116,7 @@ public class FinancialTransactionService {
                 : null;
 
         if (category != null && category.getType() != dto.getType()) {
-            throw new IllegalArgumentException("A categoria não pertence ao tipo da transação.");
+            throw new IllegalArgumentException("Category does not match the transaction type.");
         }
 
         existingTransaction.setCategory(category);

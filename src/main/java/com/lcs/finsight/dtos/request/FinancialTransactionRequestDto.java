@@ -11,13 +11,13 @@ public class FinancialTransactionRequestDto {
 
     private Long categoryId;
 
-    @NotNull(message = "O tipo de transação não pode ser nulo.")
+    @NotNull(message = "Transaction type cannot be null.")
     private FinancialTransactionType type;
 
-    @NotNull(message = "A quantidade não pode ser nula.")
+    @NotNull(message = "Amount cannot be null.")
     private BigDecimal amount;
 
-    @NotBlank(message = "A descrição não pode ser vazia.")
+    @NotBlank(message = "Description cannot be blank.")
     private String description;
 
     private String frequency;
