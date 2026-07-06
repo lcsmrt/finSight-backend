@@ -2,9 +2,12 @@ package com.lcs.finsight.controllers;
 
 import com.lcs.finsight.dtos.request.FinancialTransactionFilterDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
+import com.lcs.finsight.dtos.request.FinancialTransactionSeriesRequestDto;
 import com.lcs.finsight.dtos.response.FinancialTransactionImportResponseDto;
 import com.lcs.finsight.dtos.response.FinancialTransactionResponseDto;
+import com.lcs.finsight.dtos.response.FinancialTransactionSeriesResponseDto;
 import com.lcs.finsight.dtos.response.PagedResponseDto;
+import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.User;
 import com.lcs.finsight.services.FinancialTransactionService;
 import com.lcs.finsight.services.UserService;
@@ -19,6 +22,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @Tag(name = "Financial Transactions")
 @RestController
@@ -62,6 +67,16 @@ public class FinancialTransactionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(new FinancialTransactionResponseDto(financialTransactionService.create(dto, loggedUser)));
     }
 
+    @Operation(summary = "Creates a series of recurring transactions")
+    @PostMapping("/series")
+    public ResponseEntity<FinancialTransactionSeriesResponseDto> createSeries(
+            @RequestBody @Valid FinancialTransactionSeriesRequestDto dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        List<FinancialTransaction> occurrences = financialTransactionService.createSeries(dto, loggedUser);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new FinancialTransactionSeriesResponseDto(occurrences));
+    }
+
     @Operation(summary = "Updates a transaction")
     @PutMapping("/{id}")
     public ResponseEntity<FinancialTransactionResponseDto> updateTransaction(
@@ -89,6 +104,16 @@ public class FinancialTransactionController {
             @AuthenticationPrincipal UserDetails userDetails) {
         User loggedUser = userService.findByEmail(userDetails.getUsername());
         financialTransactionService.delete(id, loggedUser);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Deletes a series of recurring transactions")
+    @DeleteMapping("/series/{seriesId}")
+    public ResponseEntity<Void> deleteSeries(
+            @PathVariable String seriesId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        financialTransactionService.deleteSeries(seriesId, loggedUser);
         return ResponseEntity.noContent().build();
     }
 }

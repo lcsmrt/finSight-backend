@@ -1,0 +1,78 @@
+package com.lcs.finsight.dtos.request;
+
+import com.lcs.finsight.models.FinancialTransactionType;
+import com.lcs.finsight.models.RecurrenceInterval;
+import com.lcs.finsight.models.RecurrenceMode;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+public class FinancialTransactionSeriesRequestDto {
+
+    @NotNull(message = "Transaction type cannot be null.")
+    private FinancialTransactionType type;
+
+    @NotNull(message = "Amount cannot be null.")
+    @Positive(message = "Amount must be positive.")
+    private BigDecimal amount;
+
+    @NotBlank(message = "Description cannot be blank.")
+    private String description;
+
+    private Long categoryId;
+
+    @NotNull(message = "Recurrence mode cannot be null.")
+    private RecurrenceMode mode;
+
+    @NotNull(message = "Start date cannot be null.")
+    private LocalDate startDate;
+
+    @Min(value = 2, message = "Parcels number must be at least 2.")
+    @Max(value = 120, message = "Parcels number cannot exceed 120.")
+    private Integer parcelsNumber;
+
+    private RecurrenceInterval interval;
+
+    private LocalDate endDate;
+
+    public FinancialTransactionType getType() {
+        return type;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public RecurrenceMode getMode() {
+        return mode;
+    }
+
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public Integer getParcelsNumber() {
+        return parcelsNumber;
+    }
+
+    public RecurrenceInterval getInterval() {
+        return interval;
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+}

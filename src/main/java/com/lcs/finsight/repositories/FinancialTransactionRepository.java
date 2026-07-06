@@ -20,6 +20,8 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
 
     List<FinancialTransaction> findAllByUser(User user);
 
+    List<FinancialTransaction> findAllByUserAndSeriesId(User user, String seriesId);
+
     @Query("SELECT ft.externalId FROM FinancialTransaction ft WHERE ft.user = :user AND ft.externalId IN :externalIds")
     Set<String> findExistingExternalIds(@Param("user") User user, @Param("externalIds") Collection<String> externalIds);
 

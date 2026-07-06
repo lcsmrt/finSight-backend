@@ -2,10 +2,12 @@ package com.lcs.finsight.services;
 
 import com.lcs.finsight.dtos.request.FinancialTransactionFilterDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
+import com.lcs.finsight.dtos.request.FinancialTransactionSeriesRequestDto;
 import com.lcs.finsight.exceptions.FinancialTransactionExceptions;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionCategory;
 import com.lcs.finsight.models.FinancialTransactionType;
+import com.lcs.finsight.models.RecurrenceMode;
 import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionRepository;
 import com.lcs.finsight.specifications.FinancialTransactionSpecification;
@@ -26,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class FinancialTransactionService {
@@ -33,15 +36,18 @@ public class FinancialTransactionService {
     private final FinancialTransactionRepository financialTransactionRepository;
     private final FinancialTransactionCategoryService financialTransactionCategoryService;
     private final DateUtils dateUtils;
+    private final RecurringTransactionGenerator recurringTransactionGenerator;
 
     public FinancialTransactionService(
             FinancialTransactionRepository financialTransactionRepository,
             FinancialTransactionCategoryService financialTransactionCategoryService,
-            DateUtils dateUtils
+            DateUtils dateUtils,
+            RecurringTransactionGenerator recurringTransactionGenerator
     ) {
         this.financialTransactionRepository = financialTransactionRepository;
         this.financialTransactionCategoryService = financialTransactionCategoryService;
         this.dateUtils = dateUtils;
+        this.recurringTransactionGenerator = recurringTransactionGenerator;
     }
 
     @Transactional(readOnly = true)
@@ -135,6 +141,47 @@ public class FinancialTransactionService {
     public void delete(Long id, User user) {
         FinancialTransaction transaction = findById(id, user);
         financialTransactionRepository.delete(transaction);
+    }
+
+    @Transactional
+    public List<FinancialTransaction> createSeries(FinancialTransactionSeriesRequestDto dto, User user) {
+        if (dto.getMode() == RecurrenceMode.INSTALLMENT) {
+            if (dto.getParcelsNumber() == null) {
+                throw new IllegalArgumentException("Parcels number is required for installment series.");
+            }
+        } else if (dto.getMode() == RecurrenceMode.RECURRING) {
+            if (dto.getInterval() == null) {
+                throw new IllegalArgumentException("Interval is required for recurring series.");
+            }
+            if (dto.getEndDate() == null) {
+                throw new IllegalArgumentException("End date is required for recurring series.");
+            }
+            dateUtils.checkIfStartDateIsBeforeEndDate(dto.getStartDate(), dto.getEndDate());
+        }
+
+        FinancialTransactionCategory category = dto.getCategoryId() != null
+                ? financialTransactionCategoryService.findById(dto.getCategoryId(), user)
+                : null;
+
+        if (category != null && category.getType() != dto.getType()) {
+            throw new IllegalArgumentException("Category does not match the transaction type.");
+        }
+
+        String seriesId = UUID.randomUUID().toString();
+        List<FinancialTransaction> occurrences = recurringTransactionGenerator.generate(dto, user, category, seriesId);
+
+        return financialTransactionRepository.saveAll(occurrences);
+    }
+
+    @Transactional
+    public void deleteSeries(String seriesId, User user) {
+        List<FinancialTransaction> occurrences = financialTransactionRepository.findAllByUserAndSeriesId(user, seriesId);
+
+        if (occurrences.isEmpty()) {
+            throw new FinancialTransactionExceptions.FinancialTransactionSeriesNotFoundException(seriesId);
+        }
+
+        financialTransactionRepository.deleteAll(occurrences);
     }
 
     @Transactional

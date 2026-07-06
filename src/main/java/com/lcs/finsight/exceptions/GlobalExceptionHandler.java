@@ -61,6 +61,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
+    @ExceptionHandler(FinancialTransactionExceptions.FinancialTransactionSeriesNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> handleFinancialTransactionSeriesNotFound(
+            FinancialTransactionExceptions.FinancialTransactionSeriesNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
     @ExceptionHandler(FinancialTransactionCategoryExceptions.FinancialTransactionCategoryNotFoundException.class)
     public ResponseEntity<ErrorResponseDto> handleFinancialTransactionCategoryNotFound(
             FinancialTransactionCategoryExceptions.FinancialTransactionCategoryNotFoundException exception,

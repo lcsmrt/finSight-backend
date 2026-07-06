@@ -12,6 +12,7 @@ public class FinancialTransactionResponseDto {
     private final FinancialTransactionType type;
     private final BigDecimal amount;
     private final String description;
+    private final String seriesId;
     private final String frequency;
     private final Integer parcelsNumber;
     private final LocalDate startDate;
@@ -25,6 +26,7 @@ public class FinancialTransactionResponseDto {
         this.type = transaction.getType();
         this.amount = transaction.getAmount();
         this.description = transaction.getDescription();
+        this.seriesId = transaction.getSeriesId();
         this.frequency = transaction.getFrequency();
         this.parcelsNumber = transaction.getParcelsNumber();
         this.startDate = transaction.getStartDate();
@@ -49,6 +51,10 @@ public class FinancialTransactionResponseDto {
 
     public String getDescription() {
         return description;
+    }
+
+    public String getSeriesId() {
+        return seriesId;
     }
 
     public String getFrequency() {

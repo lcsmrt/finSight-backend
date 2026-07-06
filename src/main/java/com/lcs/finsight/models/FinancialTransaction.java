@@ -10,6 +10,7 @@ import java.time.LocalDate;
         @Index(name = "idx_financial_transactions_user_id", columnList = "user_id"),
         @Index(name = "idx_financial_transactions_start_date", columnList = "start_date"),
         @Index(name = "idx_financial_transactions_user_id_start_date", columnList = "user_id, start_date"),
+        @Index(name = "idx_financial_transactions_user_id_series_id", columnList = "user_id, series_id"),
 })
 public class FinancialTransaction {
     @Id
@@ -31,6 +32,8 @@ public class FinancialTransaction {
     private String description;
     private String externalId;
     private String frequency;
+    @Column(name = "series_id")
+    private String seriesId;
     private Integer parcelsNumber;
     private LocalDate startDate;
     private LocalDate endDate;
@@ -96,6 +99,14 @@ public class FinancialTransaction {
 
     public void setFrequency(String frequency) {
         this.frequency = frequency;
+    }
+
+    public String getSeriesId() {
+        return seriesId;
+    }
+
+    public void setSeriesId(String seriesId) {
+        this.seriesId = seriesId;
     }
 
     public Integer getParcelsNumber() {
