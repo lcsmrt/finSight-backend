@@ -13,6 +13,8 @@ import java.util.Optional;
 @Repository
 public interface PlanMembershipRepository extends JpaRepository<PlanMembership, Long> {
 
+    List<PlanMembership> findAllByUser(User user);
+
     Optional<PlanMembership> findByPlanAndUser(Plan plan, User user);
 
     boolean existsByPlanAndUser(Plan plan, User user);
