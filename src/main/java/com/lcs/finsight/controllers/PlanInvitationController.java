@@ -20,6 +20,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "Plan Invitations")
 @RestController
 public class PlanInvitationController {
@@ -40,6 +42,22 @@ public class PlanInvitationController {
         PlanInvitation invitation = invitationService.createInvite(
                 ctx, dto.getRole(), dto.getType(), dto.getEmail(), dto.getExpiresAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(new InvitationResponseDto(invitation));
+    }
+
+    @Operation(summary = "Lists a plan's invitations (owner only)")
+    @GetMapping(ApiRoutes.PLAN_INVITATION)
+    public ResponseEntity<List<InvitationResponseDto>> listInvitations(PlanContext ctx) {
+        List<InvitationResponseDto> invitations = invitationService.listInvitations(ctx).stream()
+                .map(InvitationResponseDto::new)
+                .toList();
+        return ResponseEntity.ok(invitations);
+    }
+
+    @Operation(summary = "Revokes an invitation (owner only)")
+    @DeleteMapping(ApiRoutes.PLAN_INVITATION + "/{invitationId}")
+    public ResponseEntity<Void> revokeInvitation(@PathVariable Long invitationId, PlanContext ctx) {
+        invitationService.revoke(ctx, invitationId);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Previews an invitation by token before accepting")

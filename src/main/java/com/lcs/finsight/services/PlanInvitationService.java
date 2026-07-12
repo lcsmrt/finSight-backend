@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -87,6 +88,13 @@ public class PlanInvitationService {
         }
 
         return savedMembership;
+    }
+
+    /** Only the plan owner may list the active plan's invitations. */
+    @Transactional(readOnly = true)
+    public List<PlanInvitation> listInvitations(PlanContext ctx) {
+        planAuthorization.requireOwner(ctx.getRole());
+        return invitationRepository.findAllByPlan(ctx.getPlan());
     }
 
     /** Only the plan owner may revoke an invitation belonging to the active plan. */
