@@ -5,6 +5,8 @@ import com.lcs.finsight.models.InvitationType;
 import com.lcs.finsight.models.PlanInvitation;
 import com.lcs.finsight.models.PlanRole;
 
+import java.time.LocalDateTime;
+
 public class InvitationResponseDto {
     private final Long id;
     private final String token;
@@ -13,6 +15,7 @@ public class InvitationResponseDto {
     private final String email;
     private final InvitationStatus status;
     private final String link;
+    private final LocalDateTime expiresAt;
 
     public InvitationResponseDto(PlanInvitation invitation) {
         this.id = invitation.getId();
@@ -20,7 +23,15 @@ public class InvitationResponseDto {
         this.role = invitation.getRole();
         this.type = invitation.getType();
         this.email = invitation.getEmail();
-        this.status = invitation.getStatus();
+        this.expiresAt = invitation.getExpiresAt();
+        // Expiry is never persisted as a status (the DB check constraint only allows
+        // PENDING/ACCEPTED/REVOKED); it is computed here so listings reflect reality
+        // even for an expired invitation that was never previewed/accepted.
+        this.status = invitation.getStatus() == InvitationStatus.PENDING
+                && expiresAt != null
+                && expiresAt.isBefore(LocalDateTime.now())
+                ? InvitationStatus.EXPIRED
+                : invitation.getStatus();
         this.link = invitation.getType() == InvitationType.LINK
                 ? "/invitations/" + invitation.getToken()
                 : null;
@@ -52,5 +63,9 @@ public class InvitationResponseDto {
 
     public String getLink() {
         return link;
+    }
+
+    public LocalDateTime getExpiresAt() {
+        return expiresAt;
     }
 }

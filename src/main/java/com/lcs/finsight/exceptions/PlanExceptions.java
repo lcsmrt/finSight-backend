@@ -49,4 +49,10 @@ public class PlanExceptions {
             super(message);
         }
     }
+
+    public static class InvitationExpiredException extends RuntimeException {
+        public InvitationExpiredException(String message) {
+            super(message);
+        }
+    }
 }

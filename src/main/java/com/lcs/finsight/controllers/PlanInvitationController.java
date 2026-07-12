@@ -38,7 +38,7 @@ public class PlanInvitationController {
             @RequestBody @Valid InvitationRequestDto dto,
             PlanContext ctx) {
         PlanInvitation invitation = invitationService.createInvite(
-                ctx, dto.getRole(), dto.getType(), dto.getEmail());
+                ctx, dto.getRole(), dto.getType(), dto.getEmail(), dto.getExpiresAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(new InvitationResponseDto(invitation));
     }
 

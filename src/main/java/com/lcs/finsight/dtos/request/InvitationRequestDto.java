@@ -4,6 +4,8 @@ import com.lcs.finsight.models.InvitationType;
 import com.lcs.finsight.models.PlanRole;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.LocalDateTime;
+
 public class InvitationRequestDto {
 
     @NotNull(message = "Role cannot be null.")
@@ -13,6 +15,8 @@ public class InvitationRequestDto {
     private InvitationType type;
 
     private String email;
+
+    private LocalDateTime expiresAt;
 
     public PlanRole getRole() {
         return role;
@@ -24,5 +28,9 @@ public class InvitationRequestDto {
 
     public String getEmail() {
         return email;
+    }
+
+    public LocalDateTime getExpiresAt() {
+        return expiresAt;
     }
 }

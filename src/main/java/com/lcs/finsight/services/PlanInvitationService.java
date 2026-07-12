@@ -14,6 +14,7 @@ import com.lcs.finsight.security.PlanContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -35,7 +36,8 @@ public class PlanInvitationService {
 
     /** Only the plan owner may invite. Builds and persists a PENDING invitation. */
     @Transactional
-    public PlanInvitation createInvite(PlanContext ctx, PlanRole role, InvitationType type, String email) {
+    public PlanInvitation createInvite(
+            PlanContext ctx, PlanRole role, InvitationType type, String email, LocalDateTime expiresAt) {
         planAuthorization.requireOwner(ctx.getRole());
 
         PlanInvitation invitation = new PlanInvitation();
@@ -46,7 +48,7 @@ public class PlanInvitationService {
         invitation.setToken(UUID.randomUUID().toString());
         invitation.setStatus(InvitationStatus.PENDING);
         invitation.setInvitedBy(ctx.getUser());
-        invitation.setExpiresAt(null);
+        invitation.setExpiresAt(type == InvitationType.LINK ? expiresAt : null);
 
         return invitationRepository.save(invitation);
     }
@@ -102,7 +104,13 @@ public class PlanInvitationService {
         invitation.setStatus(InvitationStatus.REVOKED);
     }
 
-    /** Loads by token, rejecting missing / revoked / already-consumed EMAIL invitations. */
+    /**
+     * Loads by token, rejecting missing / revoked / already-consumed EMAIL / expired
+     * invitations. Expiry is checked lazily against {@code expiresAt} rather than
+     * persisted as a status flip: the {@code plan_invitations_status_check} DB
+     * constraint only allows PENDING/ACCEPTED/REVOKED, so writing EXPIRED would require
+     * a schema migration out of scope here.
+     */
     private PlanInvitation loadValidInvitation(String token) {
         PlanInvitation invitation = invitationRepository.findByToken(token)
                 .orElseThrow(() -> new PlanExceptions.InvitationNotFoundException(token));
@@ -113,6 +121,9 @@ public class PlanInvitationService {
         if (invitation.getType() == InvitationType.EMAIL
                 && invitation.getStatus() == InvitationStatus.ACCEPTED) {
             throw new PlanExceptions.InvitationInvalidException("This invitation has already been used.");
+        }
+        if (invitation.getExpiresAt() != null && invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new PlanExceptions.InvitationExpiredException("This invitation has expired.");
         }
 
         return invitation;
