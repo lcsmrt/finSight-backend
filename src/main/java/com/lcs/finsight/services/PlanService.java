@@ -66,6 +66,10 @@ public class PlanService {
         Plan plan = planRepository.findById(planId)
                 .orElseThrow(() -> new PlanExceptions.PlanNotFoundException(planId));
 
+        if (plan.getDeletedAt() != null) {
+            throw new PlanExceptions.PlanNotFoundException(planId);
+        }
+
         return membershipRepository.findByPlanAndUser(plan, user)
                 .orElseThrow(() -> new PlanExceptions.NotAMemberException(planId));
     }

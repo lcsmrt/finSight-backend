@@ -2,6 +2,8 @@ package com.lcs.finsight.models;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "plans")
 public class Plan {
@@ -18,6 +20,9 @@ public class Plan {
 
     @Column(name = "is_default", nullable = false)
     private boolean isDefault;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     public Plan() {
     }
@@ -48,5 +53,13 @@ public class Plan {
 
     public void setDefault(boolean isDefault) {
         this.isDefault = isDefault;
+    }
+
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
     }
 }
