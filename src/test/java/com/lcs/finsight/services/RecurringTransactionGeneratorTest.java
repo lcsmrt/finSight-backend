@@ -33,6 +33,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getAmount()).thenReturn(amount);
         when(dto.getDescription()).thenReturn("Laptop");
         when(dto.getParcelsNumber()).thenReturn(12);
+        when(dto.getCurrentParcel()).thenReturn(null);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
         List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
@@ -54,6 +55,86 @@ class RecurringTransactionGeneratorTest {
             assertThat(tx.getUser()).isSameAs(user);
             assertThat(tx.getType()).isEqualTo(FinancialTransactionType.DEBIT);
         });
+    }
+
+    @Test
+    void inProgressInstallmentGeneratesCurrentParcelThroughLast() {
+        FinancialTransactionSeriesRequestDto dto = mock(FinancialTransactionSeriesRequestDto.class);
+        when(dto.getMode()).thenReturn(RecurrenceMode.INSTALLMENT);
+        when(dto.getType()).thenReturn(FinancialTransactionType.DEBIT);
+        when(dto.getAmount()).thenReturn(amount);
+        when(dto.getDescription()).thenReturn("Laptop");
+        when(dto.getParcelsNumber()).thenReturn(12);
+        when(dto.getCurrentParcel()).thenReturn(5);
+        when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
+
+        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+
+        assertThat(result).hasSize(8);
+        assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 15));
+        assertThat(result.get(7).getStartDate()).isEqualTo(LocalDate.of(2026, 8, 15));
+        assertThat(result.get(0).getDescription()).endsWith("(5/12)");
+        assertThat(result.get(7).getDescription()).endsWith("(12/12)");
+        assertThat(result).allSatisfy(tx -> assertThat(tx.getParcelsNumber()).isEqualTo(12));
+    }
+
+    @Test
+    void installmentWithCurrentParcelOneMatchesDefaultBehaviour() {
+        FinancialTransactionSeriesRequestDto dto = mock(FinancialTransactionSeriesRequestDto.class);
+        when(dto.getMode()).thenReturn(RecurrenceMode.INSTALLMENT);
+        when(dto.getType()).thenReturn(FinancialTransactionType.DEBIT);
+        when(dto.getAmount()).thenReturn(amount);
+        when(dto.getDescription()).thenReturn("Laptop");
+        when(dto.getParcelsNumber()).thenReturn(12);
+        when(dto.getCurrentParcel()).thenReturn(1);
+        when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
+
+        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+
+        assertThat(result).hasSize(12);
+        assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 15));
+        assertThat(result.get(11).getStartDate()).isEqualTo(LocalDate.of(2026, 12, 15));
+        assertThat(result.get(0).getDescription()).endsWith("(1/12)");
+        assertThat(result.get(11).getDescription()).endsWith("(12/12)");
+    }
+
+    @Test
+    void inProgressInstallmentAtLastParcelGeneratesSingleRow() {
+        FinancialTransactionSeriesRequestDto dto = mock(FinancialTransactionSeriesRequestDto.class);
+        when(dto.getMode()).thenReturn(RecurrenceMode.INSTALLMENT);
+        when(dto.getType()).thenReturn(FinancialTransactionType.DEBIT);
+        when(dto.getAmount()).thenReturn(amount);
+        when(dto.getDescription()).thenReturn("Laptop");
+        when(dto.getParcelsNumber()).thenReturn(12);
+        when(dto.getCurrentParcel()).thenReturn(12);
+        when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
+
+        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 15));
+        assertThat(result.get(0).getDescription()).endsWith("(12/12)");
+    }
+
+    @Test
+    void installmentCapAppliesToGeneratedCountNotTotal() {
+        FinancialTransactionSeriesRequestDto dto = mock(FinancialTransactionSeriesRequestDto.class);
+        when(dto.getMode()).thenReturn(RecurrenceMode.INSTALLMENT);
+        when(dto.getType()).thenReturn(FinancialTransactionType.DEBIT);
+        when(dto.getAmount()).thenReturn(amount);
+        when(dto.getDescription()).thenReturn("Laptop");
+        when(dto.getParcelsNumber()).thenReturn(200);
+        when(dto.getCurrentParcel()).thenReturn(1);
+        when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
+
+        assertThatThrownBy(() -> generator.generate(dto, user, null, SERIES_ID))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("too many occurrences");
+
+        when(dto.getParcelsNumber()).thenReturn(200);
+        when(dto.getCurrentParcel()).thenReturn(81);
+        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+        assertThat(result).hasSize(120);
     }
 
     @Test
@@ -90,6 +171,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getAmount()).thenReturn(amount);
         when(dto.getDescription()).thenReturn("Rent deposit");
         when(dto.getParcelsNumber()).thenReturn(2);
+        when(dto.getCurrentParcel()).thenReturn(null);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 31));
 
         List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);

@@ -29,15 +29,16 @@ public class RecurringTransactionGenerator {
                                                             User user,
                                                             FinancialTransactionCategory category,
                                                             String seriesId) {
-        int count = dto.getParcelsNumber();
-        ensureWithinCap(count);
+        int total = dto.getParcelsNumber();
+        int first = dto.getCurrentParcel() != null ? dto.getCurrentParcel() : 1;
+        ensureWithinCap(total - first + 1);
 
-        List<FinancialTransaction> occurrences = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
+        List<FinancialTransaction> occurrences = new ArrayList<>(total - first + 1);
+        for (int parcel = first; parcel <= total; parcel++) {
             FinancialTransaction transaction = baseTransaction(dto, user, category, seriesId,
-                    dto.getStartDate().plusMonths(i));
-            transaction.setDescription(dto.getDescription() + " (" + (i + 1) + "/" + count + ")");
-            transaction.setParcelsNumber(count);
+                    dto.getStartDate().plusMonths(parcel - first));
+            transaction.setDescription(dto.getDescription() + " (" + parcel + "/" + total + ")");
+            transaction.setParcelsNumber(total);
             transaction.setFrequency(null);
             occurrences.add(transaction);
         }

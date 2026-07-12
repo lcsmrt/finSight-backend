@@ -149,6 +149,10 @@ public class FinancialTransactionService {
             if (dto.getParcelsNumber() == null) {
                 throw new IllegalArgumentException("Parcels number is required for installment series.");
             }
+            if (dto.getCurrentParcel() != null
+                    && (dto.getCurrentParcel() < 1 || dto.getCurrentParcel() > dto.getParcelsNumber())) {
+                throw new IllegalArgumentException("Current parcel must be between 1 and the total number of parcels.");
+            }
         } else if (dto.getMode() == RecurrenceMode.RECURRING) {
             if (dto.getInterval() == null) {
                 throw new IllegalArgumentException("Interval is required for recurring series.");

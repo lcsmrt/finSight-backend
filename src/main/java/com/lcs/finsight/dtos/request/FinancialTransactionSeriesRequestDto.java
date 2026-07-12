@@ -29,12 +29,17 @@ public class FinancialTransactionSeriesRequestDto {
     @NotNull(message = "Recurrence mode cannot be null.")
     private RecurrenceMode mode;
 
+    // For installments, the month of the current parcel (parcel {@code currentParcel}); for recurring, the first occurrence.
     @NotNull(message = "Start date cannot be null.")
     private LocalDate startDate;
 
     @Min(value = 2, message = "Parcels number must be at least 2.")
     @Max(value = 120, message = "Parcels number cannot exceed 120.")
     private Integer parcelsNumber;
+
+    // The first parcel to generate (1-based, default 1); generation produces parcels currentParcel..parcelsNumber.
+    @Min(value = 1, message = "Current parcel must be at least 1.")
+    private Integer currentParcel;
 
     private RecurrenceInterval interval;
 
@@ -66,6 +71,10 @@ public class FinancialTransactionSeriesRequestDto {
 
     public Integer getParcelsNumber() {
         return parcelsNumber;
+    }
+
+    public Integer getCurrentParcel() {
+        return currentParcel;
     }
 
     public RecurrenceInterval getInterval() {
