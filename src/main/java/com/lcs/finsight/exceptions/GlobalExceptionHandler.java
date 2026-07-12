@@ -109,6 +109,64 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
     }
 
+    @ExceptionHandler({
+            PlanExceptions.PlanNotFoundException.class,
+            PlanExceptions.NotAMemberException.class,
+            PlanExceptions.InvitationNotFoundException.class
+    })
+    public ResponseEntity<ErrorResponseDto> handlePlanNotFound(
+            RuntimeException exception,
+            HttpServletRequest request
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler({
+            PlanExceptions.InsufficientPlanRoleException.class,
+            PlanExceptions.CannotModifyOthersTransactionException.class
+    })
+    public ResponseEntity<ErrorResponseDto> handlePlanForbidden(
+            RuntimeException exception,
+            HttpServletRequest request
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+    }
+
+    @ExceptionHandler({
+            PlanExceptions.LastPlanException.class,
+            PlanExceptions.LastOwnerException.class
+    })
+    public ResponseEntity<ErrorResponseDto> handlePlanConflict(
+            RuntimeException exception,
+            HttpServletRequest request
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
+    @ExceptionHandler(PlanExceptions.InvitationInvalidException.class)
+    public ResponseEntity<ErrorResponseDto> handleInvitationInvalid(
+            PlanExceptions.InvitationInvalidException exception,
+            HttpServletRequest request
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponseDto> handleIllegalArgument(
             IllegalArgumentException exception,
