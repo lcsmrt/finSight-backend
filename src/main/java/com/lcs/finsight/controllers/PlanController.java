@@ -1,6 +1,7 @@
 package com.lcs.finsight.controllers;
 
 import com.lcs.finsight.dtos.request.PlanRequestDto;
+import com.lcs.finsight.dtos.request.UpdateMemberRoleRequestDto;
 import com.lcs.finsight.dtos.response.PlanMemberResponseDto;
 import com.lcs.finsight.dtos.response.PlanResponseDto;
 import com.lcs.finsight.models.Plan;
@@ -72,5 +73,30 @@ public class PlanController {
                 .map(PlanMemberResponseDto::new)
                 .toList();
         return ResponseEntity.ok(members);
+    }
+
+    @Operation(summary = "Changes the role of a plan member (owner only)")
+    @PutMapping("/{id}/members/{userId}")
+    public ResponseEntity<PlanMemberResponseDto> updateMemberRole(
+            @PathVariable Long id,
+            @PathVariable Long userId,
+            @RequestBody @Valid UpdateMemberRoleRequestDto dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        User targetUser = userService.findById(userId);
+        return ResponseEntity.ok(new PlanMemberResponseDto(
+                planService.changeMemberRole(id, targetUser, dto.getRole(), loggedUser)));
+    }
+
+    @Operation(summary = "Removes a member from a plan (owner only)")
+    @DeleteMapping("/{id}/members/{userId}")
+    public ResponseEntity<Void> removeMember(
+            @PathVariable Long id,
+            @PathVariable Long userId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        User targetUser = userService.findById(userId);
+        planService.removeMember(id, targetUser, loggedUser);
+        return ResponseEntity.noContent().build();
     }
 }
