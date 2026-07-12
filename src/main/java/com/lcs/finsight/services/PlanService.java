@@ -7,6 +7,7 @@ import com.lcs.finsight.models.PlanRole;
 import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.PlanMembershipRepository;
 import com.lcs.finsight.repositories.PlanRepository;
+import com.lcs.finsight.security.PlanAuthorization;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,13 +18,16 @@ public class PlanService {
 
     private final PlanRepository planRepository;
     private final PlanMembershipRepository membershipRepository;
+    private final PlanAuthorization planAuthorization;
 
     public PlanService(
             PlanRepository planRepository,
-            PlanMembershipRepository membershipRepository
+            PlanMembershipRepository membershipRepository,
+            PlanAuthorization planAuthorization
     ) {
         this.planRepository = planRepository;
         this.membershipRepository = membershipRepository;
+        this.planAuthorization = planAuthorization;
     }
 
     @Transactional
@@ -82,5 +86,38 @@ public class PlanService {
         if (membershipRepository.countByPlanAndRole(plan, PlanRole.OWNER) <= 1) {
             throw new PlanExceptions.LastOwnerException();
         }
+    }
+
+    @Transactional
+    public PlanMembership changeMemberRole(Long planId, User targetUser, PlanRole newRole, User requester) {
+        PlanMembership requesterMembership = getMembership(planId, requester);
+        planAuthorization.requireOwner(requesterMembership.getRole());
+
+        Plan plan = requesterMembership.getPlan();
+        PlanMembership targetMembership = membershipRepository.findByPlanAndUser(plan, targetUser)
+                .orElseThrow(() -> new PlanExceptions.NotAMemberException(planId));
+
+        if (targetMembership.getRole() == PlanRole.OWNER && newRole != PlanRole.OWNER) {
+            requireNotLastOwner(plan);
+        }
+
+        targetMembership.setRole(newRole);
+        return membershipRepository.save(targetMembership);
+    }
+
+    @Transactional
+    public void removeMember(Long planId, User targetUser, User requester) {
+        PlanMembership requesterMembership = getMembership(planId, requester);
+        planAuthorization.requireOwner(requesterMembership.getRole());
+
+        Plan plan = requesterMembership.getPlan();
+        PlanMembership targetMembership = membershipRepository.findByPlanAndUser(plan, targetUser)
+                .orElseThrow(() -> new PlanExceptions.NotAMemberException(planId));
+
+        if (targetMembership.getRole() == PlanRole.OWNER) {
+            requireNotLastOwner(plan);
+        }
+
+        membershipRepository.delete(targetMembership);
     }
 }
