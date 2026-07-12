@@ -3,6 +3,7 @@ package com.lcs.finsight.services;
 import com.lcs.finsight.dtos.request.FinancialTransactionSeriesRequestDto;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionCategory;
+import com.lcs.finsight.models.Plan;
 import com.lcs.finsight.models.User;
 import org.springframework.stereotype.Component;
 
@@ -16,17 +17,19 @@ public class RecurringTransactionGenerator {
     private static final int MAX_OCCURRENCES = 120;
 
     public List<FinancialTransaction> generate(FinancialTransactionSeriesRequestDto dto,
-                                               User user,
+                                               Plan plan,
+                                               User createdBy,
                                                FinancialTransactionCategory category,
                                                String seriesId) {
         return switch (dto.getMode()) {
-            case INSTALLMENT -> generateInstallments(dto, user, category, seriesId);
-            case RECURRING -> generateRecurring(dto, user, category, seriesId);
+            case INSTALLMENT -> generateInstallments(dto, plan, createdBy, category, seriesId);
+            case RECURRING -> generateRecurring(dto, plan, createdBy, category, seriesId);
         };
     }
 
     private List<FinancialTransaction> generateInstallments(FinancialTransactionSeriesRequestDto dto,
-                                                            User user,
+                                                            Plan plan,
+                                                            User createdBy,
                                                             FinancialTransactionCategory category,
                                                             String seriesId) {
         int total = dto.getParcelsNumber();
@@ -35,7 +38,7 @@ public class RecurringTransactionGenerator {
 
         List<FinancialTransaction> occurrences = new ArrayList<>(total - first + 1);
         for (int parcel = first; parcel <= total; parcel++) {
-            FinancialTransaction transaction = baseTransaction(dto, user, category, seriesId,
+            FinancialTransaction transaction = baseTransaction(dto, plan, createdBy, category, seriesId,
                     dto.getStartDate().plusMonths(parcel - first));
             transaction.setDescription(dto.getDescription() + " (" + parcel + "/" + total + ")");
             transaction.setParcelsNumber(total);
@@ -46,14 +49,15 @@ public class RecurringTransactionGenerator {
     }
 
     private List<FinancialTransaction> generateRecurring(FinancialTransactionSeriesRequestDto dto,
-                                                         User user,
+                                                         Plan plan,
+                                                         User createdBy,
                                                          FinancialTransactionCategory category,
                                                          String seriesId) {
         List<FinancialTransaction> occurrences = new ArrayList<>();
         for (LocalDate date = dto.getStartDate(); !date.isAfter(dto.getEndDate()); date = date.plusMonths(1)) {
             ensureWithinCap(occurrences.size() + 1);
 
-            FinancialTransaction transaction = baseTransaction(dto, user, category, seriesId, date);
+            FinancialTransaction transaction = baseTransaction(dto, plan, createdBy, category, seriesId, date);
             transaction.setDescription(dto.getDescription());
             transaction.setParcelsNumber(null);
             transaction.setFrequency("MONTHLY");
@@ -63,12 +67,14 @@ public class RecurringTransactionGenerator {
     }
 
     private FinancialTransaction baseTransaction(FinancialTransactionSeriesRequestDto dto,
-                                                 User user,
+                                                 Plan plan,
+                                                 User createdBy,
                                                  FinancialTransactionCategory category,
                                                  String seriesId,
                                                  LocalDate date) {
         FinancialTransaction transaction = new FinancialTransaction();
-        transaction.setUser(user);
+        transaction.setPlan(plan);
+        transaction.setCreatedBy(createdBy);
         transaction.setCategory(category);
         transaction.setType(dto.getType());
         transaction.setAmount(dto.getAmount());

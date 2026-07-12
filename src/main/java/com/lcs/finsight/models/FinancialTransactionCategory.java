@@ -11,9 +11,9 @@ public class FinancialTransactionCategory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(nullable = false, foreignKey = @ForeignKey(name = "fk_financial_transaction_categories_users"))
-    private User user;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "plan_id", nullable = false, foreignKey = @ForeignKey(name = "fk_ftc_plan"))
+    private Plan plan;
 
     @Enumerated(EnumType.STRING)
     private FinancialTransactionType type;
@@ -28,9 +28,9 @@ public class FinancialTransactionCategory {
         return id;
     }
 
-    public User getUser() { return user; }
+    public Plan getPlan() { return plan; }
 
-    public void setUser(User user) { this.user = user; }
+    public void setPlan(Plan plan) { this.plan = plan; }
 
     public FinancialTransactionType getType() {
         return type;

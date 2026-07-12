@@ -5,8 +5,9 @@ import com.lcs.finsight.dtos.request.FinancialTransactionCategoryRequestDto;
 import com.lcs.finsight.exceptions.FinancialTransactionCategoryExceptions;
 import com.lcs.finsight.models.FinancialTransactionCategory;
 import com.lcs.finsight.models.FinancialTransactionType;
-import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionCategoryRepository;
+import com.lcs.finsight.security.PlanAuthorization;
+import com.lcs.finsight.security.PlanContext;
 import com.lcs.finsight.specifications.FinancialTransactionCategorySpecification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -21,17 +22,21 @@ import java.util.Set;
 public class FinancialTransactionCategoryService {
 
     private final FinancialTransactionCategoryRepository categoryRepository;
+    private final PlanAuthorization planAuthorization;
 
-    public FinancialTransactionCategoryService(FinancialTransactionCategoryRepository categoryRepository) {
+    public FinancialTransactionCategoryService(
+            FinancialTransactionCategoryRepository categoryRepository,
+            PlanAuthorization planAuthorization) {
         this.categoryRepository = categoryRepository;
+        this.planAuthorization = planAuthorization;
     }
 
     @Transactional(readOnly = true)
-    public FinancialTransactionCategory findById(Long id, User user) {
+    public FinancialTransactionCategory findById(Long id, PlanContext ctx) {
         FinancialTransactionCategory category = categoryRepository.findById(id)
                 .orElseThrow(() -> new FinancialTransactionCategoryExceptions.FinancialTransactionCategoryNotFoundException(id));
 
-        if (!category.getUser().getId().equals(user.getId())) {
+        if (!category.getPlan().getId().equals(ctx.getPlan().getId())) {
             throw new FinancialTransactionCategoryExceptions.FinancialTransactionCategoryNotFoundException(id);
         }
 
@@ -41,16 +46,16 @@ public class FinancialTransactionCategoryService {
     private static final Set<String> SORTABLE_FIELDS = Set.of("description", "spendingLimit");
 
     @Transactional(readOnly = true)
-    public List<FinancialTransactionCategory> findAllByUser(User user) {
-        return categoryRepository.findAllByUser(user);
+    public List<FinancialTransactionCategory> findAllByPlan(PlanContext ctx) {
+        return categoryRepository.findAllByPlan(ctx.getPlan());
     }
 
     @Transactional(readOnly = true)
-    public Page<FinancialTransactionCategory> findAllByUserPaged(FinancialTransactionCategoryFilterDto filter, User user) {
+    public Page<FinancialTransactionCategory> findAllByPlanPaged(FinancialTransactionCategoryFilterDto filter, PlanContext ctx) {
         PageRequest pageable = filter.toPageable(SORTABLE_FIELDS);
 
         Specification<FinancialTransactionCategory> spec = Specification.allOf(
-                FinancialTransactionCategorySpecification.belongsToUser(user),
+                FinancialTransactionCategorySpecification.belongsToPlan(ctx.getPlan()),
                 FinancialTransactionCategorySpecification.descriptionContains(filter.getDescription()),
                 FinancialTransactionCategorySpecification.typeEquals(filter.getType()));
 
@@ -58,10 +63,12 @@ public class FinancialTransactionCategoryService {
     }
 
     @Transactional
-    public FinancialTransactionCategory create(FinancialTransactionCategoryRequestDto dto, User user) {
+    public FinancialTransactionCategory create(FinancialTransactionCategoryRequestDto dto, PlanContext ctx) {
+        planAuthorization.requireCanManageCategories(ctx.getRole());
+
         FinancialTransactionCategory category = new FinancialTransactionCategory();
 
-        category.setUser(user);
+        category.setPlan(ctx.getPlan());
         category.setType(dto.getType());
         category.setDescription(dto.getDescription());
         category.setSpendingLimit(dto.getType() == FinancialTransactionType.CREDIT ? null : dto.getSpendingLimit());
@@ -70,8 +77,10 @@ public class FinancialTransactionCategoryService {
     }
 
     @Transactional
-    public FinancialTransactionCategory update(Long id, FinancialTransactionCategoryRequestDto dto, User user) {
-        FinancialTransactionCategory existingCategory = findById(id, user);
+    public FinancialTransactionCategory update(Long id, FinancialTransactionCategoryRequestDto dto, PlanContext ctx) {
+        planAuthorization.requireCanManageCategories(ctx.getRole());
+
+        FinancialTransactionCategory existingCategory = findById(id, ctx);
 
         existingCategory.setType(dto.getType());
         existingCategory.setDescription(dto.getDescription());
@@ -81,8 +90,10 @@ public class FinancialTransactionCategoryService {
     }
 
     @Transactional
-    public void delete(Long id, User user) {
-        FinancialTransactionCategory category = findById(id, user);
+    public void delete(Long id, PlanContext ctx) {
+        planAuthorization.requireCanManageCategories(ctx.getRole());
+
+        FinancialTransactionCategory category = findById(id, ctx);
         categoryRepository.delete(category);
     }
 }

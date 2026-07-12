@@ -7,19 +7,23 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "financial_transactions", indexes = {
-        @Index(name = "idx_financial_transactions_user_id", columnList = "user_id"),
         @Index(name = "idx_financial_transactions_start_date", columnList = "start_date"),
-        @Index(name = "idx_financial_transactions_user_id_start_date", columnList = "user_id, start_date"),
-        @Index(name = "idx_financial_transactions_user_id_series_id", columnList = "user_id, series_id"),
+        @Index(name = "idx_ft_plan_id", columnList = "plan_id"),
+        @Index(name = "idx_ft_plan_id_start_date", columnList = "plan_id, start_date"),
+        @Index(name = "idx_ft_plan_id_series_id", columnList = "plan_id, series_id"),
 })
 public class FinancialTransaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(nullable = false, foreignKey = @ForeignKey(name = "fk_financial_transactions_users"))
-    private User user;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "plan_id", nullable = false, foreignKey = @ForeignKey(name = "fk_ft_plan"))
+    private Plan plan;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "created_by", nullable = false, foreignKey = @ForeignKey(name = "fk_ft_created_by"))
+    private User createdBy;
 
     @ManyToOne
     @JoinColumn(foreignKey = @ForeignKey(name = "fk_financial_transactions_financial_transaction_categories"))
@@ -45,12 +49,20 @@ public class FinancialTransaction {
         return id;
     }
 
-    public User getUser() {
-        return user;
+    public Plan getPlan() {
+        return plan;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public void setPlan(Plan plan) {
+        this.plan = plan;
+    }
+
+    public User getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(User createdBy) {
+        this.createdBy = createdBy;
     }
 
     public FinancialTransactionCategory getCategory() {

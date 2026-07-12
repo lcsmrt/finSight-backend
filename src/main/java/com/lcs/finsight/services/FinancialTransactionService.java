@@ -8,8 +8,9 @@ import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionCategory;
 import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.RecurrenceMode;
-import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionRepository;
+import com.lcs.finsight.security.PlanAuthorization;
+import com.lcs.finsight.security.PlanContext;
 import com.lcs.finsight.specifications.FinancialTransactionSpecification;
 import com.lcs.finsight.utils.DateUtils;
 import org.springframework.data.domain.Page;
@@ -37,25 +38,28 @@ public class FinancialTransactionService {
     private final FinancialTransactionCategoryService financialTransactionCategoryService;
     private final DateUtils dateUtils;
     private final RecurringTransactionGenerator recurringTransactionGenerator;
+    private final PlanAuthorization planAuthorization;
 
     public FinancialTransactionService(
             FinancialTransactionRepository financialTransactionRepository,
             FinancialTransactionCategoryService financialTransactionCategoryService,
             DateUtils dateUtils,
-            RecurringTransactionGenerator recurringTransactionGenerator
+            RecurringTransactionGenerator recurringTransactionGenerator,
+            PlanAuthorization planAuthorization
     ) {
         this.financialTransactionRepository = financialTransactionRepository;
         this.financialTransactionCategoryService = financialTransactionCategoryService;
         this.dateUtils = dateUtils;
         this.recurringTransactionGenerator = recurringTransactionGenerator;
+        this.planAuthorization = planAuthorization;
     }
 
     @Transactional(readOnly = true)
-    public FinancialTransaction findById(Long id, User user) {
+    public FinancialTransaction findById(Long id, PlanContext ctx) {
         FinancialTransaction transaction = financialTransactionRepository.findById(id)
                 .orElseThrow(() -> new FinancialTransactionExceptions.FinancialTransactionNotFoundException(id));
 
-        if (!transaction.getUser().getId().equals(user.getId())) {
+        if (!transaction.getPlan().getId().equals(ctx.getPlan().getId())) {
             throw new FinancialTransactionExceptions.FinancialTransactionNotFoundException(id);
         }
 
@@ -65,16 +69,16 @@ public class FinancialTransactionService {
     private static final Set<String> SORTABLE_FIELDS = Set.of("startDate", "endDate", "amount", "description");
 
     @Transactional(readOnly = true)
-    public List<FinancialTransaction> findAllByUser(User user) {
-        return financialTransactionRepository.findAllByUser(user);
+    public List<FinancialTransaction> findAllByPlan(PlanContext ctx) {
+        return financialTransactionRepository.findAllByPlan(ctx.getPlan());
     }
 
     @Transactional(readOnly = true)
-    public Page<FinancialTransaction> findAllByUserPaged(FinancialTransactionFilterDto filter, User user) {
+    public Page<FinancialTransaction> findAllByPlanPaged(FinancialTransactionFilterDto filter, PlanContext ctx) {
         PageRequest pageable = filter.toPageable(SORTABLE_FIELDS);
 
         Specification<FinancialTransaction> spec = Specification.allOf(
-                FinancialTransactionSpecification.belongsToUser(user),
+                FinancialTransactionSpecification.belongsToPlan(ctx.getPlan()),
                 FinancialTransactionSpecification.typeEquals(filter.getType()),
                 FinancialTransactionSpecification.categoryEquals(filter.getCategoryId()),
                 FinancialTransactionSpecification.descriptionContains(filter.getDescription()),
@@ -87,19 +91,21 @@ public class FinancialTransactionService {
     }
 
     @Transactional
-    public FinancialTransaction create(FinancialTransactionRequestDto dto, User user) {
+    public FinancialTransaction create(FinancialTransactionRequestDto dto, PlanContext ctx) {
+        planAuthorization.requireCanCreateTransaction(ctx.getRole());
         dateUtils.checkIfStartDateIsBeforeEndDate(dto.getStartDate(), dto.getEndDate());
 
         FinancialTransaction financialTransaction = new FinancialTransaction();
         FinancialTransactionCategory category = dto.getCategoryId() != null
-                ? financialTransactionCategoryService.findById(dto.getCategoryId(), user)
+                ? financialTransactionCategoryService.findById(dto.getCategoryId(), ctx)
                 : null;
 
         if (category != null && category.getType() != dto.getType()) {
             throw new IllegalArgumentException("Category does not match the transaction type.");
         }
 
-        financialTransaction.setUser(user);
+        financialTransaction.setPlan(ctx.getPlan());
+        financialTransaction.setCreatedBy(ctx.getUser());
         financialTransaction.setCategory(category);
         financialTransaction.setType(dto.getType());
         financialTransaction.setAmount(dto.getAmount());
@@ -113,12 +119,14 @@ public class FinancialTransactionService {
     }
 
     @Transactional
-    public FinancialTransaction update(Long id, FinancialTransactionRequestDto dto, User user) {
+    public FinancialTransaction update(Long id, FinancialTransactionRequestDto dto, PlanContext ctx) {
         dateUtils.checkIfStartDateIsBeforeEndDate(dto.getStartDate(), dto.getEndDate());
 
-        FinancialTransaction existingTransaction = findById(id, user);
+        FinancialTransaction existingTransaction = findById(id, ctx);
+        planAuthorization.requireCanModifyTransaction(ctx.getRole(), existingTransaction.getCreatedBy(), ctx.getUser());
+
         FinancialTransactionCategory category = dto.getCategoryId() != null
-                ? financialTransactionCategoryService.findById(dto.getCategoryId(), user)
+                ? financialTransactionCategoryService.findById(dto.getCategoryId(), ctx)
                 : null;
 
         if (category != null && category.getType() != dto.getType()) {
@@ -138,13 +146,16 @@ public class FinancialTransactionService {
     }
 
     @Transactional
-    public void delete(Long id, User user) {
-        FinancialTransaction transaction = findById(id, user);
+    public void delete(Long id, PlanContext ctx) {
+        FinancialTransaction transaction = findById(id, ctx);
+        planAuthorization.requireCanModifyTransaction(ctx.getRole(), transaction.getCreatedBy(), ctx.getUser());
         financialTransactionRepository.delete(transaction);
     }
 
     @Transactional
-    public List<FinancialTransaction> createSeries(FinancialTransactionSeriesRequestDto dto, User user) {
+    public List<FinancialTransaction> createSeries(FinancialTransactionSeriesRequestDto dto, PlanContext ctx) {
+        planAuthorization.requireCanCreateTransaction(ctx.getRole());
+
         if (dto.getMode() == RecurrenceMode.INSTALLMENT) {
             if (dto.getParcelsNumber() == null) {
                 throw new IllegalArgumentException("Parcels number is required for installment series.");
@@ -164,7 +175,7 @@ public class FinancialTransactionService {
         }
 
         FinancialTransactionCategory category = dto.getCategoryId() != null
-                ? financialTransactionCategoryService.findById(dto.getCategoryId(), user)
+                ? financialTransactionCategoryService.findById(dto.getCategoryId(), ctx)
                 : null;
 
         if (category != null && category.getType() != dto.getType()) {
@@ -172,24 +183,30 @@ public class FinancialTransactionService {
         }
 
         String seriesId = UUID.randomUUID().toString();
-        List<FinancialTransaction> occurrences = recurringTransactionGenerator.generate(dto, user, category, seriesId);
+        List<FinancialTransaction> occurrences = recurringTransactionGenerator.generate(
+                dto, ctx.getPlan(), ctx.getUser(), category, seriesId);
 
         return financialTransactionRepository.saveAll(occurrences);
     }
 
     @Transactional
-    public void deleteSeries(String seriesId, User user) {
-        List<FinancialTransaction> occurrences = financialTransactionRepository.findAllByUserAndSeriesId(user, seriesId);
+    public void deleteSeries(String seriesId, PlanContext ctx) {
+        List<FinancialTransaction> occurrences = financialTransactionRepository.findAllByPlanAndSeriesId(ctx.getPlan(), seriesId);
 
         if (occurrences.isEmpty()) {
             throw new FinancialTransactionExceptions.FinancialTransactionSeriesNotFoundException(seriesId);
+        }
+
+        for (FinancialTransaction occurrence : occurrences) {
+            planAuthorization.requireCanModifyTransaction(ctx.getRole(), occurrence.getCreatedBy(), ctx.getUser());
         }
 
         financialTransactionRepository.deleteAll(occurrences);
     }
 
     @Transactional
-    public int importFromNubankCsv(MultipartFile file, User user) {
+    public int importFromNubankCsv(MultipartFile file, PlanContext ctx) {
+        planAuthorization.requireCanCreateTransaction(ctx.getRole());
         try {
             List<String> lines = new BufferedReader(
                     new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8)
@@ -217,13 +234,14 @@ public class FinancialTransactionService {
             }
 
             Set<String> existingIds = financialTransactionRepository.findExistingExternalIds(
-                    user, parsed.stream().map(ParsedRow::externalId).toList());
+                    ctx.getPlan(), parsed.stream().map(ParsedRow::externalId).toList());
 
             for (ParsedRow row : parsed) {
                 if (existingIds.contains(row.externalId())) continue;
 
                 FinancialTransaction t = new FinancialTransaction();
-                t.setUser(user);
+                t.setPlan(ctx.getPlan());
+                t.setCreatedBy(ctx.getUser());
                 t.setExternalId(row.externalId());
                 t.setStartDate(row.date());
                 t.setAmount(row.rawAmount().abs());

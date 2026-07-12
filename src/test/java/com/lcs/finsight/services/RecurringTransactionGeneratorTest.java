@@ -3,6 +3,7 @@ package com.lcs.finsight.services;
 import com.lcs.finsight.dtos.request.FinancialTransactionSeriesRequestDto;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionType;
+import com.lcs.finsight.models.Plan;
 import com.lcs.finsight.models.RecurrenceInterval;
 import com.lcs.finsight.models.RecurrenceMode;
 import com.lcs.finsight.models.User;
@@ -22,6 +23,7 @@ class RecurringTransactionGeneratorTest {
     private final RecurringTransactionGenerator generator = new RecurringTransactionGenerator();
 
     private final User user = new User();
+    private final Plan plan = new Plan();
     private final BigDecimal amount = new BigDecimal("300.00");
     private static final String SERIES_ID = "test-series";
 
@@ -36,7 +38,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(null);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
-        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
 
         assertThat(result).hasSize(12);
 
@@ -52,7 +54,7 @@ class RecurringTransactionGeneratorTest {
             assertThat(tx.getParcelsNumber()).isEqualTo(12);
             assertThat(tx.getFrequency()).isNull();
             assertThat(tx.getSeriesId()).isEqualTo(SERIES_ID);
-            assertThat(tx.getUser()).isSameAs(user);
+            assertThat(tx.getCreatedBy()).isSameAs(user);
             assertThat(tx.getType()).isEqualTo(FinancialTransactionType.DEBIT);
         });
     }
@@ -68,7 +70,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(5);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
-        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
 
         assertThat(result).hasSize(8);
         assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 15));
@@ -89,7 +91,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(1);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
-        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
 
         assertThat(result).hasSize(12);
         assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 15));
@@ -109,7 +111,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(12);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
-        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 15));
@@ -127,13 +129,13 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(1);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
-        assertThatThrownBy(() -> generator.generate(dto, user, null, SERIES_ID))
+        assertThatThrownBy(() -> generator.generate(dto, plan, user, null, SERIES_ID))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("too many occurrences");
 
         when(dto.getParcelsNumber()).thenReturn(200);
         when(dto.getCurrentParcel()).thenReturn(81);
-        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
         assertThat(result).hasSize(120);
     }
 
@@ -148,7 +150,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 1));
         when(dto.getEndDate()).thenReturn(LocalDate.of(2026, 12, 1));
 
-        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
 
         assertThat(result).hasSize(12);
         assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 1));
@@ -174,7 +176,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(null);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 31));
 
-        List<FinancialTransaction> result = generator.generate(dto, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 31));
@@ -192,7 +194,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 1));
         when(dto.getEndDate()).thenReturn(LocalDate.of(2050, 1, 1));
 
-        assertThatThrownBy(() -> generator.generate(dto, user, null, SERIES_ID))
+        assertThatThrownBy(() -> generator.generate(dto, plan, user, null, SERIES_ID))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("too many occurrences");
     }

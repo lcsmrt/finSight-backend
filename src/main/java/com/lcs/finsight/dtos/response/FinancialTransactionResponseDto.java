@@ -2,6 +2,7 @@ package com.lcs.finsight.dtos.response;
 
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionType;
+import com.lcs.finsight.models.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ public class FinancialTransactionResponseDto {
     private final Integer parcelsNumber;
     private final LocalDate startDate;
     private final LocalDate endDate;
+    private final CreatedByDto createdBy;
 
     public FinancialTransactionResponseDto(FinancialTransaction transaction) {
         this.id = transaction.getId();
@@ -31,6 +33,31 @@ public class FinancialTransactionResponseDto {
         this.parcelsNumber = transaction.getParcelsNumber();
         this.startDate = transaction.getStartDate();
         this.endDate = transaction.getEndDate();
+        this.createdBy = transaction.getCreatedBy() != null
+                ? new CreatedByDto(transaction.getCreatedBy())
+                : null;
+    }
+
+    public static class CreatedByDto {
+        private final Long id;
+        private final String name;
+
+        public CreatedByDto(User user) {
+            this.id = user.getId();
+            this.name = user.getName();
+        }
+
+        public Long getId() {
+            return id;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    public CreatedByDto getCreatedBy() {
+        return createdBy;
     }
 
     public Long getId() {

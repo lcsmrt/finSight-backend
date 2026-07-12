@@ -8,9 +8,8 @@ import com.lcs.finsight.dtos.response.FinancialTransactionResponseDto;
 import com.lcs.finsight.dtos.response.FinancialTransactionSeriesResponseDto;
 import com.lcs.finsight.dtos.response.PagedResponseDto;
 import com.lcs.finsight.models.FinancialTransaction;
-import com.lcs.finsight.models.User;
+import com.lcs.finsight.security.PlanContext;
 import com.lcs.finsight.services.FinancialTransactionService;
-import com.lcs.finsight.services.UserService;
 import com.lcs.finsight.utils.ApiRoutes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,8 +17,6 @@ import org.springdoc.core.annotations.ParameterObject;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,30 +28,26 @@ import java.util.List;
 public class FinancialTransactionController {
 
     private final FinancialTransactionService financialTransactionService;
-    private final UserService userService;
 
-    public FinancialTransactionController(FinancialTransactionService financialTransactionService, UserService userService) {
+    public FinancialTransactionController(FinancialTransactionService financialTransactionService) {
         this.financialTransactionService = financialTransactionService;
-        this.userService = userService;
     }
 
     @Operation(summary = "Fetches a transaction by ID")
     @GetMapping("/{id}")
     public ResponseEntity<FinancialTransactionResponseDto> getTransaction(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
-        return ResponseEntity.ok(new FinancialTransactionResponseDto(financialTransactionService.findById(id, loggedUser)));
+            PlanContext ctx) {
+        return ResponseEntity.ok(new FinancialTransactionResponseDto(financialTransactionService.findById(id, ctx)));
     }
 
-    @Operation(summary = "Fetches all transactions for the logged-in user")
+    @Operation(summary = "Fetches all transactions for the plan")
     @GetMapping
     public ResponseEntity<PagedResponseDto<FinancialTransactionResponseDto>> getAllTransactions(
             @ParameterObject @ModelAttribute @Valid FinancialTransactionFilterDto filter,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+            PlanContext ctx) {
         return ResponseEntity.ok(new PagedResponseDto<>(
-                financialTransactionService.findAllByUserPaged(filter, loggedUser).map(FinancialTransactionResponseDto::new)
+                financialTransactionService.findAllByPlanPaged(filter, ctx).map(FinancialTransactionResponseDto::new)
         ));
     }
 
@@ -62,18 +55,16 @@ public class FinancialTransactionController {
     @PostMapping
     public ResponseEntity<FinancialTransactionResponseDto> createTransaction(
             @RequestBody @Valid FinancialTransactionRequestDto dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
-        return ResponseEntity.status(HttpStatus.CREATED).body(new FinancialTransactionResponseDto(financialTransactionService.create(dto, loggedUser)));
+            PlanContext ctx) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(new FinancialTransactionResponseDto(financialTransactionService.create(dto, ctx)));
     }
 
     @Operation(summary = "Creates a series of recurring transactions")
     @PostMapping("/series")
     public ResponseEntity<FinancialTransactionSeriesResponseDto> createSeries(
             @RequestBody @Valid FinancialTransactionSeriesRequestDto dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
-        List<FinancialTransaction> occurrences = financialTransactionService.createSeries(dto, loggedUser);
+            PlanContext ctx) {
+        List<FinancialTransaction> occurrences = financialTransactionService.createSeries(dto, ctx);
         return ResponseEntity.status(HttpStatus.CREATED).body(new FinancialTransactionSeriesResponseDto(occurrences));
     }
 
@@ -82,18 +73,16 @@ public class FinancialTransactionController {
     public ResponseEntity<FinancialTransactionResponseDto> updateTransaction(
             @PathVariable Long id,
             @RequestBody @Valid FinancialTransactionRequestDto dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
-        return ResponseEntity.ok(new FinancialTransactionResponseDto(financialTransactionService.update(id, dto, loggedUser)));
+            PlanContext ctx) {
+        return ResponseEntity.ok(new FinancialTransactionResponseDto(financialTransactionService.update(id, dto, ctx)));
     }
 
     @Operation(summary = "Imports transactions from a Nubank CSV file")
     @PostMapping("/import")
     public ResponseEntity<FinancialTransactionImportResponseDto> importCsv(
             @RequestParam("file") MultipartFile file,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
-        int imported = financialTransactionService.importFromNubankCsv(file, loggedUser);
+            PlanContext ctx) {
+        int imported = financialTransactionService.importFromNubankCsv(file, ctx);
         return ResponseEntity.ok(new FinancialTransactionImportResponseDto(imported));
     }
 
@@ -101,9 +90,8 @@ public class FinancialTransactionController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTransaction(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
-        financialTransactionService.delete(id, loggedUser);
+            PlanContext ctx) {
+        financialTransactionService.delete(id, ctx);
         return ResponseEntity.noContent().build();
     }
 
@@ -111,9 +99,8 @@ public class FinancialTransactionController {
     @DeleteMapping("/series/{seriesId}")
     public ResponseEntity<Void> deleteSeries(
             @PathVariable String seriesId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
-        financialTransactionService.deleteSeries(seriesId, loggedUser);
+            PlanContext ctx) {
+        financialTransactionService.deleteSeries(seriesId, ctx);
         return ResponseEntity.noContent().build();
     }
 }

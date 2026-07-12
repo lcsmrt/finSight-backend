@@ -1,6 +1,6 @@
 package com.lcs.finsight.repositories;
 
-import com.lcs.finsight.models.User;
+import com.lcs.finsight.models.Plan;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
@@ -11,5 +11,5 @@ import java.util.List;
 
 @Repository
 public interface FinancialTransactionCategoryRepository extends JpaRepository<FinancialTransactionCategory, Long>, JpaSpecificationExecutor<FinancialTransactionCategory> {
-    List<FinancialTransactionCategory> findAllByUser(User user);
+    List<FinancialTransactionCategory> findAllByPlan(Plan plan);
 }

@@ -4,8 +4,9 @@ import com.lcs.finsight.dtos.response.CategoryBreakdownDto;
 import com.lcs.finsight.dtos.response.DashboardSummaryDto;
 import com.lcs.finsight.dtos.response.MonthlyTrendDto;
 import com.lcs.finsight.models.FinancialTransactionType;
-import com.lcs.finsight.models.User;
+import com.lcs.finsight.models.Plan;
 import com.lcs.finsight.repositories.FinancialTransactionRepository;
+import com.lcs.finsight.security.PlanContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,24 +27,26 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardSummaryDto getSummary(User user, LocalDate startDate, LocalDate endDate) {
-        BigDecimal totalIncome = financialTransactionRepository.sumByUserAndTypeAndDateRange(
-                user, FinancialTransactionType.CREDIT, startDate, endDate);
+    public DashboardSummaryDto getSummary(PlanContext ctx, LocalDate startDate, LocalDate endDate) {
+        Plan plan = ctx.getPlan();
 
-        BigDecimal totalExpenses = financialTransactionRepository.sumByUserAndTypeAndDateRange(
-                user, FinancialTransactionType.DEBIT, startDate, endDate);
+        BigDecimal totalIncome = financialTransactionRepository.sumByPlanAndTypeAndDateRange(
+                plan, FinancialTransactionType.CREDIT, startDate, endDate);
+
+        BigDecimal totalExpenses = financialTransactionRepository.sumByPlanAndTypeAndDateRange(
+                plan, FinancialTransactionType.DEBIT, startDate, endDate);
 
         BigDecimal netBalance = totalIncome.subtract(totalExpenses);
 
-        List<CategoryBreakdownDto> categoryBreakdown = buildCategoryBreakdown(user, startDate, endDate);
-        List<MonthlyTrendDto> monthlyTrend = buildMonthlyTrend(user, startDate, endDate);
+        List<CategoryBreakdownDto> categoryBreakdown = buildCategoryBreakdown(plan, startDate, endDate);
+        List<MonthlyTrendDto> monthlyTrend = buildMonthlyTrend(plan, startDate, endDate);
 
         return new DashboardSummaryDto(totalIncome, totalExpenses, netBalance, categoryBreakdown, monthlyTrend);
     }
 
-    private List<CategoryBreakdownDto> buildCategoryBreakdown(User user, LocalDate startDate, LocalDate endDate) {
+    private List<CategoryBreakdownDto> buildCategoryBreakdown(Plan plan, LocalDate startDate, LocalDate endDate) {
         List<Object[]> rows = financialTransactionRepository.findCategoryBreakdown(
-                user, FinancialTransactionType.DEBIT, startDate, endDate);
+                plan, FinancialTransactionType.DEBIT, startDate, endDate);
 
         List<CategoryBreakdownDto> result = new ArrayList<>();
         for (Object[] row : rows) {
@@ -55,8 +58,8 @@ public class DashboardService {
         return result;
     }
 
-    private List<MonthlyTrendDto> buildMonthlyTrend(User user, LocalDate startDate, LocalDate endDate) {
-        List<Object[]> rows = financialTransactionRepository.findMonthlyTrend(user, startDate, endDate);
+    private List<MonthlyTrendDto> buildMonthlyTrend(Plan plan, LocalDate startDate, LocalDate endDate) {
+        List<Object[]> rows = financialTransactionRepository.findMonthlyTrend(plan, startDate, endDate);
 
         Map<String, MonthlyTrendDto> trendMap = new LinkedHashMap<>();
         for (Object[] row : rows) {

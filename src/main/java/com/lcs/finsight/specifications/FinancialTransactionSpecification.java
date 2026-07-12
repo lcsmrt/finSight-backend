@@ -2,7 +2,7 @@ package com.lcs.finsight.specifications;
 
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionType;
-import com.lcs.finsight.models.User;
+import com.lcs.finsight.models.Plan;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
@@ -10,8 +10,8 @@ import java.time.LocalDate;
 
 public class FinancialTransactionSpecification {
 
-    public static Specification<FinancialTransaction> belongsToUser(User user) {
-        return (root, query, cb) -> cb.equal(root.get("user"), user);
+    public static Specification<FinancialTransaction> belongsToPlan(Plan plan) {
+        return (root, query, cb) -> cb.equal(root.get("plan"), plan);
     }
 
     public static Specification<FinancialTransaction> typeEquals(FinancialTransactionType type) {
