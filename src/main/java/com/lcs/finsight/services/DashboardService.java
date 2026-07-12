@@ -3,8 +3,10 @@ package com.lcs.finsight.services;
 import com.lcs.finsight.dtos.response.CategoryBreakdownDto;
 import com.lcs.finsight.dtos.response.DashboardSummaryDto;
 import com.lcs.finsight.dtos.response.MonthlyTrendDto;
+import com.lcs.finsight.models.FinancialTransactionCategory;
 import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.Plan;
+import com.lcs.finsight.repositories.FinancialTransactionCategoryRepository;
 import com.lcs.finsight.repositories.FinancialTransactionRepository;
 import com.lcs.finsight.security.PlanContext;
 import org.springframework.stereotype.Service;
@@ -13,17 +15,22 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class DashboardService {
 
     private final FinancialTransactionRepository financialTransactionRepository;
+    private final FinancialTransactionCategoryRepository financialTransactionCategoryRepository;
 
-    public DashboardService(FinancialTransactionRepository financialTransactionRepository) {
+    public DashboardService(FinancialTransactionRepository financialTransactionRepository,
+                             FinancialTransactionCategoryRepository financialTransactionCategoryRepository) {
         this.financialTransactionRepository = financialTransactionRepository;
+        this.financialTransactionCategoryRepository = financialTransactionCategoryRepository;
     }
 
     @Transactional(readOnly = true)
@@ -49,11 +56,21 @@ public class DashboardService {
                 plan, FinancialTransactionType.DEBIT, startDate, endDate);
 
         List<CategoryBreakdownDto> result = new ArrayList<>();
+        Set<String> seenCategoryNames = new HashSet<>();
         for (Object[] row : rows) {
             String categoryName = (String) row[0];
             BigDecimal spent = (BigDecimal) row[1];
             BigDecimal limit = (BigDecimal) row[2];
             result.add(new CategoryBreakdownDto(categoryName, spent, limit));
+            seenCategoryNames.add(categoryName);
+        }
+
+        for (FinancialTransactionCategory category : financialTransactionCategoryRepository.findAllByPlan(plan)) {
+            if (category.getType() == FinancialTransactionType.DEBIT
+                    && category.getSpendingLimit() != null
+                    && !seenCategoryNames.contains(category.getDescription())) {
+                result.add(new CategoryBreakdownDto(category.getDescription(), BigDecimal.ZERO, category.getSpendingLimit()));
+            }
         }
         return result;
     }
