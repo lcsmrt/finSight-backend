@@ -1,6 +1,7 @@
 package com.lcs.finsight.controllers;
 
 import com.lcs.finsight.dtos.request.PlanRequestDto;
+import com.lcs.finsight.dtos.request.TransferOwnershipRequestDto;
 import com.lcs.finsight.dtos.request.UpdateMemberRoleRequestDto;
 import com.lcs.finsight.dtos.response.PlanMemberResponseDto;
 import com.lcs.finsight.dtos.response.PlanResponseDto;
@@ -73,6 +74,48 @@ public class PlanController {
                 .map(PlanMemberResponseDto::new)
                 .toList();
         return ResponseEntity.ok(members);
+    }
+
+    @Operation(summary = "Renames a plan (owner only)")
+    @PutMapping("/{id}")
+    public ResponseEntity<PlanResponseDto> renamePlan(
+            @PathVariable Long id,
+            @RequestBody @Valid PlanRequestDto dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        return ResponseEntity.ok(new PlanResponseDto(planService.renamePlan(id, dto.getName(), loggedUser)));
+    }
+
+    @Operation(summary = "Deletes (soft-delete) a plan (owner only)")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletePlan(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        planService.deletePlan(id, loggedUser);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Leaves a plan (non-owner only)")
+    @PostMapping("/{id}/leave")
+    public ResponseEntity<Void> leavePlan(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        planService.leavePlan(id, loggedUser);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Transfers plan ownership to another member (owner only)")
+    @PostMapping("/{id}/transfer")
+    public ResponseEntity<Void> transferOwnership(
+            @PathVariable Long id,
+            @RequestBody @Valid TransferOwnershipRequestDto dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User loggedUser = userService.findByEmail(userDetails.getUsername());
+        User targetUser = userService.findById(dto.getNewOwnerUserId());
+        planService.transferOwnership(id, targetUser, dto.getPreviousOwnerRole(), loggedUser);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Changes the role of a plan member (owner only)")
