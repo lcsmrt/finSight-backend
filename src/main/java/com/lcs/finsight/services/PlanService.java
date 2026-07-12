@@ -148,4 +148,34 @@ public class PlanService {
 
         membershipRepository.delete(targetMembership);
     }
+
+    @Transactional
+    public void leavePlan(Long planId, User requester) {
+        PlanMembership requesterMembership = getMembership(planId, requester);
+
+        if (requesterMembership.getRole() == PlanRole.OWNER) {
+            throw new PlanExceptions.LastOwnerException();
+        }
+
+        requireNotLastPlan(requester);
+        membershipRepository.delete(requesterMembership);
+    }
+
+    @Transactional
+    public void transferOwnership(Long planId, User targetUser, PlanRole previousOwnerRole, User requester) {
+        PlanMembership requesterMembership = getMembership(planId, requester);
+        planAuthorization.requireOwner(requesterMembership.getRole());
+
+        Plan plan = requesterMembership.getPlan();
+        PlanMembership newOwnerMembership = membershipRepository.findByPlanAndUser(plan, targetUser)
+                .orElseThrow(() -> new PlanExceptions.NotAMemberException(planId));
+
+        PlanRole demotedRole = previousOwnerRole != null ? previousOwnerRole : PlanRole.EDITOR;
+
+        newOwnerMembership.setRole(PlanRole.OWNER);
+        requesterMembership.setRole(demotedRole);
+
+        membershipRepository.save(newOwnerMembership);
+        membershipRepository.save(requesterMembership);
+    }
 }
