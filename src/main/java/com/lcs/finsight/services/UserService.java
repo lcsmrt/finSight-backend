@@ -15,11 +15,14 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PlanService planService;
 
     public UserService(
-            UserRepository userRepository
+            UserRepository userRepository,
+            PlanService planService
     ) {
         this.userRepository = userRepository;
+        this.planService = planService;
     }
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
@@ -49,7 +52,9 @@ public class UserService {
         String encryptedPassword = encoder.encode(dto.getPassword());
         user.setPassword(encryptedPassword);
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        planService.provisionDefaultPlan(savedUser);
+        return savedUser;
     }
 
     @Transactional
