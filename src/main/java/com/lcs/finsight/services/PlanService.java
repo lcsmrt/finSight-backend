@@ -11,6 +11,7 @@ import com.lcs.finsight.security.PlanAuthorization;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -107,6 +108,29 @@ public class PlanService {
 
         targetMembership.setRole(newRole);
         return membershipRepository.save(targetMembership);
+    }
+
+    @Transactional
+    public PlanMembership renamePlan(Long planId, String newName, User requester) {
+        PlanMembership requesterMembership = getMembership(planId, requester);
+        planAuthorization.requireOwner(requesterMembership.getRole());
+
+        Plan plan = requesterMembership.getPlan();
+        plan.setName(newName);
+        planRepository.save(plan);
+
+        return requesterMembership;
+    }
+
+    @Transactional
+    public void deletePlan(Long planId, User requester) {
+        PlanMembership requesterMembership = getMembership(planId, requester);
+        planAuthorization.requireOwner(requesterMembership.getRole());
+        requireNotLastPlan(requester);
+
+        Plan plan = requesterMembership.getPlan();
+        plan.setDeletedAt(LocalDateTime.now());
+        planRepository.save(plan);
     }
 
     @Transactional
