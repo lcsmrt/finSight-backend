@@ -15,7 +15,7 @@ import java.util.Optional;
 @Repository
 public interface PlanMembershipRepository extends JpaRepository<PlanMembership, Long> {
 
-    @Query("select m from PlanMembership m where m.user = :user and m.plan.deletedAt is null")
+    @Query("select m from PlanMembership m join fetch m.plan where m.user = :user and m.plan.deletedAt is null")
     List<PlanMembership> findAllByUser(@Param("user") User user);
 
     Optional<PlanMembership> findByPlanAndUser(Plan plan, User user);
