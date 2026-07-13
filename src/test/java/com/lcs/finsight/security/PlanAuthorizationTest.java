@@ -158,4 +158,30 @@ class PlanAuthorizationTest {
         assertThatThrownBy(() -> authorization.requireOwner(PlanRole.VIEWER))
                 .isInstanceOf(PlanExceptions.InsufficientPlanRoleException.class);
     }
+
+    // --- attribute to other members -----------------------------------------
+
+    @Test
+    void attributeToOthersAllowedForOwner() {
+        assertThatCode(() -> authorization.requireCanAttributeToOthers(PlanRole.OWNER))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void attributeToOthersAllowedForEditor() {
+        assertThatCode(() -> authorization.requireCanAttributeToOthers(PlanRole.EDITOR))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void attributeToOthersDeniedForContributor() {
+        assertThatThrownBy(() -> authorization.requireCanAttributeToOthers(PlanRole.CONTRIBUTOR))
+                .isInstanceOf(PlanExceptions.InsufficientPlanRoleException.class);
+    }
+
+    @Test
+    void attributeToOthersDeniedForViewer() {
+        assertThatThrownBy(() -> authorization.requireCanAttributeToOthers(PlanRole.VIEWER))
+                .isInstanceOf(PlanExceptions.InsufficientPlanRoleException.class);
+    }
 }

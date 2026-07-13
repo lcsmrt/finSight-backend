@@ -56,4 +56,12 @@ public class PlanAuthorization {
                     "Only the plan owner can perform this action.");
         }
     }
+
+    /** OWNER/EDITOR may attribute a transaction to other members; CONTRIBUTOR/VIEWER may not. */
+    public void requireCanAttributeToOthers(PlanRole role) {
+        if (role != PlanRole.OWNER && role != PlanRole.EDITOR) {
+            throw new PlanExceptions.InsufficientPlanRoleException(
+                    "Only owners and editors can attribute a transaction to other members.");
+        }
+    }
 }
