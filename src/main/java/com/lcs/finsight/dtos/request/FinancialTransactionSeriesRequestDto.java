@@ -3,6 +3,8 @@ package com.lcs.finsight.dtos.request;
 import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.RecurrenceInterval;
 import com.lcs.finsight.models.RecurrenceMode;
+import com.lcs.finsight.models.SplitMode;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -11,6 +13,7 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public class FinancialTransactionSeriesRequestDto {
 
@@ -44,6 +47,11 @@ public class FinancialTransactionSeriesRequestDto {
     private RecurrenceInterval interval;
 
     private LocalDate endDate;
+
+    private SplitMode splitMode;
+
+    @Valid
+    private List<ParticipantInputDto> participants;
 
     public FinancialTransactionType getType() {
         return type;
@@ -83,5 +91,13 @@ public class FinancialTransactionSeriesRequestDto {
 
     public LocalDate getEndDate() {
         return endDate;
+    }
+
+    public SplitMode getSplitMode() {
+        return splitMode;
+    }
+
+    public List<ParticipantInputDto> getParticipants() {
+        return participants;
     }
 }
