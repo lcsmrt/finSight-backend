@@ -69,6 +69,12 @@ public class PlanInvitationService {
     public PlanMembership accept(String token, User actor) {
         PlanInvitation invitation = loadValidInvitation(token);
 
+        if (invitation.getType() == InvitationType.EMAIL
+                && !invitation.getEmail().equalsIgnoreCase(actor.getEmail())) {
+            throw new PlanExceptions.InvitationInvalidException(
+                    "This invitation is bound to a different email address.");
+        }
+
         if (membershipRepository.existsByPlanAndUser(invitation.getPlan(), actor)) {
             if (invitation.getType() == InvitationType.EMAIL) {
                 invitation.setStatus(InvitationStatus.ACCEPTED);
