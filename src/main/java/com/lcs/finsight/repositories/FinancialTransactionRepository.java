@@ -57,11 +57,11 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 
-    @Query("SELECT ft.createdBy.id, ft.createdBy.name, ft.type, COALESCE(SUM(ft.amount), 0) " +
-           "FROM FinancialTransaction ft " +
+    @Query("SELECT tp.member.id, tp.member.name, ft.type, COALESCE(SUM(tp.shareAmount), 0) " +
+           "FROM FinancialTransaction ft JOIN ft.participants tp " +
            "WHERE ft.plan = :plan " +
            "AND ft.startDate >= :startDate AND ft.startDate <= :endDate " +
-           "GROUP BY ft.createdBy.id, ft.createdBy.name, ft.type")
+           "GROUP BY tp.member.id, tp.member.name, ft.type")
     List<Object[]> findPersonBreakdown(
             @Param("plan") Plan plan,
             @Param("startDate") LocalDate startDate,
