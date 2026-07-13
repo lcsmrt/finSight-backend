@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "financial_transactions", indexes = {
@@ -41,6 +43,13 @@ public class FinancialTransaction {
     private Integer parcelsNumber;
     private LocalDate startDate;
     private LocalDate endDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "split_mode", nullable = false)
+    private SplitMode splitMode = SplitMode.EQUAL;
+
+    @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TransactionParticipant> participants = new ArrayList<>();
 
     public FinancialTransaction() {
     }
@@ -143,5 +152,17 @@ public class FinancialTransaction {
 
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
+    }
+
+    public SplitMode getSplitMode() {
+        return splitMode;
+    }
+
+    public void setSplitMode(SplitMode splitMode) {
+        this.splitMode = splitMode;
+    }
+
+    public List<TransactionParticipant> getParticipants() {
+        return participants;
     }
 }
