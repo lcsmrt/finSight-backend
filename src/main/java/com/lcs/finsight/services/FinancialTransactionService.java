@@ -169,8 +169,6 @@ public class FinancialTransactionService {
         return financialTransactionRepository.save(existingTransaction);
     }
 
-    private record ResolvedParticipant(User member, BigDecimal shareAmount) {}
-
     private record ResolvedParticipants(SplitMode splitMode, List<ResolvedParticipant> shares) {}
 
     private ResolvedParticipants resolveParticipants(
@@ -203,16 +201,19 @@ public class FinancialTransactionService {
         return new ResolvedParticipants(splitMode, shares);
     }
 
-    private void applyParticipants(
-            FinancialTransaction transaction, List<ParticipantInputDto> participantInputs,
-            SplitMode requestedSplitMode, BigDecimal amount, PlanContext ctx) {
-        ResolvedParticipants resolved = resolveParticipants(participantInputs, requestedSplitMode, amount, ctx);
-
+    private void requireAttributionAuthorizedIfNeeded(ResolvedParticipants resolved, PlanContext ctx) {
         boolean isSelfOnly = resolved.shares().size() == 1
                 && resolved.shares().get(0).member().getId().equals(ctx.getUser().getId());
         if (!isSelfOnly) {
             planAuthorization.requireCanAttributeToOthers(ctx.getRole());
         }
+    }
+
+    private void applyParticipants(
+            FinancialTransaction transaction, List<ParticipantInputDto> participantInputs,
+            SplitMode requestedSplitMode, BigDecimal amount, PlanContext ctx) {
+        ResolvedParticipants resolved = resolveParticipants(participantInputs, requestedSplitMode, amount, ctx);
+        requireAttributionAuthorizedIfNeeded(resolved, ctx);
 
         transaction.setSplitMode(resolved.splitMode());
         transaction.getParticipants().clear();
@@ -262,9 +263,13 @@ public class FinancialTransactionService {
             throw new IllegalArgumentException("Category does not match the transaction type.");
         }
 
+        ResolvedParticipants resolvedParticipants = resolveParticipants(dto.getParticipants(), dto.getSplitMode(), dto.getAmount(), ctx);
+        requireAttributionAuthorizedIfNeeded(resolvedParticipants, ctx);
+
         String seriesId = UUID.randomUUID().toString();
         List<FinancialTransaction> occurrences = recurringTransactionGenerator.generate(
-                dto, ctx.getPlan(), ctx.getUser(), category, seriesId);
+                dto, ctx.getPlan(), ctx.getUser(), category, seriesId,
+                resolvedParticipants.splitMode(), resolvedParticipants.shares());
 
         return financialTransactionRepository.saveAll(occurrences);
     }

@@ -6,9 +6,11 @@ import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.Plan;
 import com.lcs.finsight.models.RecurrenceInterval;
 import com.lcs.finsight.models.RecurrenceMode;
+import com.lcs.finsight.models.SplitMode;
 import com.lcs.finsight.models.User;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -22,10 +24,24 @@ class RecurringTransactionGeneratorTest {
 
     private final RecurringTransactionGenerator generator = new RecurringTransactionGenerator();
 
-    private final User user = new User();
+    private final User user = userWithId(1L);
+    private final User other = userWithId(2L);
     private final Plan plan = new Plan();
     private final BigDecimal amount = new BigDecimal("300.00");
+    private final List<ResolvedParticipant> selfShares = List.of(new ResolvedParticipant(user, amount));
     private static final String SERIES_ID = "test-series";
+
+    private static User userWithId(Long id) {
+        User u = new User();
+        try {
+            Field field = User.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(u, id);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+        return u;
+    }
 
     @Test
     void installmentSeriesExpandsToOneOccurrencePerParcel() {
@@ -38,7 +54,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(null);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
-        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares);
 
         assertThat(result).hasSize(12);
 
@@ -70,7 +86,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(5);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
-        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares);
 
         assertThat(result).hasSize(8);
         assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 15));
@@ -91,7 +107,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(1);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
-        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares);
 
         assertThat(result).hasSize(12);
         assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 15));
@@ -111,7 +127,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(12);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
-        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 15));
@@ -129,13 +145,13 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(1);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 15));
 
-        assertThatThrownBy(() -> generator.generate(dto, plan, user, null, SERIES_ID))
+        assertThatThrownBy(() -> generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("too many occurrences");
 
         when(dto.getParcelsNumber()).thenReturn(200);
         when(dto.getCurrentParcel()).thenReturn(81);
-        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares);
         assertThat(result).hasSize(120);
     }
 
@@ -150,7 +166,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 1));
         when(dto.getEndDate()).thenReturn(LocalDate.of(2026, 12, 1));
 
-        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares);
 
         assertThat(result).hasSize(12);
         assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 1));
@@ -176,7 +192,7 @@ class RecurringTransactionGeneratorTest {
         when(dto.getCurrentParcel()).thenReturn(null);
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 31));
 
-        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID);
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares);
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 31));
@@ -194,8 +210,57 @@ class RecurringTransactionGeneratorTest {
         when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 1));
         when(dto.getEndDate()).thenReturn(LocalDate.of(2050, 1, 1));
 
-        assertThatThrownBy(() -> generator.generate(dto, plan, user, null, SERIES_ID))
+        assertThatThrownBy(() -> generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("too many occurrences");
+    }
+
+    @Test
+    void installmentSeriesStampsSameParticipantSharesOnEveryOccurrence() {
+        FinancialTransactionSeriesRequestDto dto = mock(FinancialTransactionSeriesRequestDto.class);
+        when(dto.getMode()).thenReturn(RecurrenceMode.INSTALLMENT);
+        when(dto.getType()).thenReturn(FinancialTransactionType.DEBIT);
+        when(dto.getAmount()).thenReturn(amount);
+        when(dto.getDescription()).thenReturn("Rent");
+        when(dto.getParcelsNumber()).thenReturn(3);
+        when(dto.getCurrentParcel()).thenReturn(null);
+        when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 1));
+
+        List<ResolvedParticipant> shares = List.of(
+                new ResolvedParticipant(user, new BigDecimal("150.00")),
+                new ResolvedParticipant(other, new BigDecimal("150.00")));
+
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, shares);
+
+        assertThat(result).hasSize(3);
+        assertThat(result).allSatisfy(tx -> {
+            assertThat(tx.getSplitMode()).isEqualTo(SplitMode.EQUAL);
+            assertThat(tx.getParticipants()).hasSize(2);
+            assertThat(tx.getParticipants()).extracting(p -> p.getMember().getId())
+                    .containsExactlyInAnyOrder(user.getId(), other.getId());
+            assertThat(tx.getParticipants()).allSatisfy(p -> assertThat(p.getShareAmount()).isEqualByComparingTo("150.00"));
+            assertThat(tx.getParticipants()).allSatisfy(p -> assertThat(p.getTransaction()).isSameAs(tx));
+        });
+    }
+
+    @Test
+    void recurringSeriesStampsSameParticipantSharesOnEveryOccurrence() {
+        FinancialTransactionSeriesRequestDto dto = mock(FinancialTransactionSeriesRequestDto.class);
+        when(dto.getMode()).thenReturn(RecurrenceMode.RECURRING);
+        when(dto.getType()).thenReturn(FinancialTransactionType.DEBIT);
+        when(dto.getAmount()).thenReturn(amount);
+        when(dto.getDescription()).thenReturn("Gym membership");
+        when(dto.getInterval()).thenReturn(RecurrenceInterval.MONTHLY);
+        when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 1));
+        when(dto.getEndDate()).thenReturn(LocalDate.of(2026, 3, 1));
+
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares);
+
+        assertThat(result).hasSize(3);
+        assertThat(result).allSatisfy(tx -> {
+            assertThat(tx.getParticipants()).hasSize(1);
+            assertThat(tx.getParticipants().get(0).getMember().getId()).isEqualTo(user.getId());
+            assertThat(tx.getParticipants().get(0).getShareAmount()).isEqualByComparingTo(amount);
+        });
     }
 }
