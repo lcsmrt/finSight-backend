@@ -163,6 +163,10 @@ public class PlanService {
 
     @Transactional
     public void transferOwnership(Long planId, User targetUser, PlanRole previousOwnerRole, User requester) {
+        if (targetUser.getId().equals(requester.getId())) {
+            throw new IllegalArgumentException("You cannot transfer ownership to yourself.");
+        }
+
         PlanMembership requesterMembership = getMembership(planId, requester);
         planAuthorization.requireOwner(requesterMembership.getRole());
 
