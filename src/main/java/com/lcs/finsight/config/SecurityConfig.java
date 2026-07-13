@@ -44,6 +44,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(HttpMethod.POST, "/api/finsight/users").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/finsight/invitations/*").permitAll()
                         .requestMatchers(
                                 "/api/finsight/auth/login", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**"
                         ).permitAll()
