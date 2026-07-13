@@ -95,6 +95,10 @@ public class PlanService {
 
     @Transactional
     public PlanMembership changeMemberRole(Long planId, User targetUser, PlanRole newRole, User requester) {
+        if (newRole == PlanRole.OWNER) {
+            throw new IllegalArgumentException("Use transferOwnership to make another member the owner.");
+        }
+
         PlanMembership requesterMembership = getMembership(planId, requester);
         planAuthorization.requireOwner(requesterMembership.getRole());
 
@@ -102,7 +106,7 @@ public class PlanService {
         PlanMembership targetMembership = membershipRepository.findByPlanAndUser(plan, targetUser)
                 .orElseThrow(() -> new PlanExceptions.NotAMemberException(planId));
 
-        if (targetMembership.getRole() == PlanRole.OWNER && newRole != PlanRole.OWNER) {
+        if (targetMembership.getRole() == PlanRole.OWNER) {
             requireNotLastOwner(plan);
         }
 
