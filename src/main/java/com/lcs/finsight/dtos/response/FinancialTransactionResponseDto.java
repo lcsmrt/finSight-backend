@@ -2,10 +2,14 @@ package com.lcs.finsight.dtos.response;
 
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionType;
+import com.lcs.finsight.models.SplitMode;
+import com.lcs.finsight.models.TransactionParticipant;
 import com.lcs.finsight.models.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class FinancialTransactionResponseDto {
     private final Long id;
@@ -19,6 +23,8 @@ public class FinancialTransactionResponseDto {
     private final LocalDate startDate;
     private final LocalDate endDate;
     private final CreatedByDto createdBy;
+    private final SplitMode splitMode;
+    private final List<ParticipantDto> participants;
 
     public FinancialTransactionResponseDto(FinancialTransaction transaction) {
         this.id = transaction.getId();
@@ -36,6 +42,10 @@ public class FinancialTransactionResponseDto {
         this.createdBy = transaction.getCreatedBy() != null
                 ? new CreatedByDto(transaction.getCreatedBy())
                 : null;
+        this.splitMode = transaction.getSplitMode();
+        this.participants = transaction.getParticipants().stream()
+                .map(ParticipantDto::new)
+                .collect(Collectors.toList());
     }
 
     public static class CreatedByDto {
@@ -56,8 +66,40 @@ public class FinancialTransactionResponseDto {
         }
     }
 
+    public static class ParticipantDto {
+        private final Long id;
+        private final String name;
+        private final BigDecimal shareAmount;
+
+        public ParticipantDto(TransactionParticipant participant) {
+            this.id = participant.getMember().getId();
+            this.name = participant.getMember().getName();
+            this.shareAmount = participant.getShareAmount();
+        }
+
+        public Long getId() {
+            return id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public BigDecimal getShareAmount() {
+            return shareAmount;
+        }
+    }
+
     public CreatedByDto getCreatedBy() {
         return createdBy;
+    }
+
+    public SplitMode getSplitMode() {
+        return splitMode;
+    }
+
+    public List<ParticipantDto> getParticipants() {
+        return participants;
     }
 
     public Long getId() {
