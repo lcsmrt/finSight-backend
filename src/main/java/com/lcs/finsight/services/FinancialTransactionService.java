@@ -3,12 +3,18 @@ package com.lcs.finsight.services;
 import com.lcs.finsight.dtos.request.FinancialTransactionFilterDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionSeriesRequestDto;
+import com.lcs.finsight.dtos.request.ParticipantInputDto;
 import com.lcs.finsight.exceptions.FinancialTransactionExceptions;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionCategory;
 import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.RecurrenceMode;
+import com.lcs.finsight.models.SplitMode;
+import com.lcs.finsight.models.TransactionParticipant;
+import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionRepository;
+import com.lcs.finsight.repositories.PlanMembershipRepository;
+import com.lcs.finsight.repositories.UserRepository;
 import com.lcs.finsight.security.PlanAuthorization;
 import com.lcs.finsight.security.PlanContext;
 import com.lcs.finsight.specifications.FinancialTransactionSpecification;
@@ -29,7 +35,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -41,19 +50,28 @@ public class FinancialTransactionService {
     private final DateUtils dateUtils;
     private final RecurringTransactionGenerator recurringTransactionGenerator;
     private final PlanAuthorization planAuthorization;
+    private final SplitResolver splitResolver;
+    private final PlanMembershipRepository planMembershipRepository;
+    private final UserRepository userRepository;
 
     public FinancialTransactionService(
             FinancialTransactionRepository financialTransactionRepository,
             FinancialTransactionCategoryService financialTransactionCategoryService,
             DateUtils dateUtils,
             RecurringTransactionGenerator recurringTransactionGenerator,
-            PlanAuthorization planAuthorization
+            PlanAuthorization planAuthorization,
+            SplitResolver splitResolver,
+            PlanMembershipRepository planMembershipRepository,
+            UserRepository userRepository
     ) {
         this.financialTransactionRepository = financialTransactionRepository;
         this.financialTransactionCategoryService = financialTransactionCategoryService;
         this.dateUtils = dateUtils;
         this.recurringTransactionGenerator = recurringTransactionGenerator;
         this.planAuthorization = planAuthorization;
+        this.splitResolver = splitResolver;
+        this.planMembershipRepository = planMembershipRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -117,6 +135,8 @@ public class FinancialTransactionService {
         financialTransaction.setStartDate(dto.getStartDate());
         financialTransaction.setEndDate(dto.getEndDate());
 
+        applyParticipants(financialTransaction, dto.getParticipants(), dto.getSplitMode(), dto.getAmount(), ctx);
+
         return financialTransactionRepository.save(financialTransaction);
     }
 
@@ -144,7 +164,65 @@ public class FinancialTransactionService {
         existingTransaction.setStartDate(dto.getStartDate());
         existingTransaction.setEndDate(dto.getEndDate());
 
+        applyParticipants(existingTransaction, dto.getParticipants(), dto.getSplitMode(), dto.getAmount(), ctx);
+
         return financialTransactionRepository.save(existingTransaction);
+    }
+
+    private record ResolvedParticipant(User member, BigDecimal shareAmount) {}
+
+    private record ResolvedParticipants(SplitMode splitMode, List<ResolvedParticipant> shares) {}
+
+    private ResolvedParticipants resolveParticipants(
+            List<ParticipantInputDto> participantInputs, SplitMode requestedSplitMode, BigDecimal amount, PlanContext ctx) {
+        if (participantInputs == null || participantInputs.isEmpty()) {
+            return new ResolvedParticipants(SplitMode.EQUAL, List.of(new ResolvedParticipant(ctx.getUser(), amount)));
+        }
+
+        Set<Long> seenMemberIds = new HashSet<>();
+        Map<Long, User> membersById = new LinkedHashMap<>();
+        List<SplitResolver.ParticipantInput> resolverInputs = new ArrayList<>();
+        for (ParticipantInputDto input : participantInputs) {
+            if (!seenMemberIds.add(input.getMemberId())) {
+                throw new IllegalArgumentException("Duplicate participant in transaction.");
+            }
+            User member = userRepository.findById(input.getMemberId())
+                    .filter(u -> planMembershipRepository.existsByPlanAndUser(ctx.getPlan(), u))
+                    .orElseThrow(() -> new IllegalArgumentException("Participant is not a member of the plan."));
+            membersById.put(member.getId(), member);
+            resolverInputs.add(new SplitResolver.ParticipantInput(member.getId(), input.getShareAmount()));
+        }
+
+        SplitMode splitMode = requestedSplitMode != null ? requestedSplitMode : SplitMode.EQUAL;
+        List<SplitResolver.ResolvedShare> resolvedShares = splitResolver.resolve(amount, splitMode, resolverInputs);
+
+        List<ResolvedParticipant> shares = resolvedShares.stream()
+                .map(share -> new ResolvedParticipant(membersById.get(share.memberId()), share.shareAmount()))
+                .toList();
+
+        return new ResolvedParticipants(splitMode, shares);
+    }
+
+    private void applyParticipants(
+            FinancialTransaction transaction, List<ParticipantInputDto> participantInputs,
+            SplitMode requestedSplitMode, BigDecimal amount, PlanContext ctx) {
+        ResolvedParticipants resolved = resolveParticipants(participantInputs, requestedSplitMode, amount, ctx);
+
+        boolean isSelfOnly = resolved.shares().size() == 1
+                && resolved.shares().get(0).member().getId().equals(ctx.getUser().getId());
+        if (!isSelfOnly) {
+            planAuthorization.requireCanAttributeToOthers(ctx.getRole());
+        }
+
+        transaction.setSplitMode(resolved.splitMode());
+        transaction.getParticipants().clear();
+        for (ResolvedParticipant share : resolved.shares()) {
+            TransactionParticipant participant = new TransactionParticipant();
+            participant.setTransaction(transaction);
+            participant.setMember(share.member());
+            participant.setShareAmount(share.shareAmount());
+            transaction.getParticipants().add(participant);
+        }
     }
 
     @Transactional
