@@ -38,7 +38,7 @@ public class PlanService {
 
     @Transactional
     public Plan provisionDefaultPlan(User owner) {
-        return createPlanInternal("Meu plano", owner, true);
+        return createPlanInternal("My plan", owner, true);
     }
 
     private Plan createPlanInternal(String name, User owner, boolean isDefault) {

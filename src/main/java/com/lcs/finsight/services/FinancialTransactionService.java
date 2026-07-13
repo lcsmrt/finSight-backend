@@ -216,7 +216,7 @@ public class FinancialTransactionService {
                     new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8)
             ).lines().toList();
         } catch (IOException e) {
-            throw new RuntimeException("Erro ao ler o arquivo CSV.", e);
+            throw new RuntimeException("Failed to read the CSV file.", e);
         }
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -241,7 +241,7 @@ public class FinancialTransactionService {
                 ));
             } catch (DateTimeParseException | NumberFormatException e) {
                 throw new IllegalArgumentException(
-                        "Linha " + (i + 1) + " do CSV é inválida: " + e.getMessage());
+                        "Line " + (i + 1) + " of the CSV is invalid: " + e.getMessage());
             }
         }
 
