@@ -21,11 +21,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -207,56 +209,63 @@ public class FinancialTransactionService {
     @Transactional
     public int importFromNubankCsv(MultipartFile file, PlanContext ctx) {
         planAuthorization.requireCanCreateTransaction(ctx.getRole());
+
+        List<String> lines;
         try {
-            List<String> lines = new BufferedReader(
+            lines = new BufferedReader(
                     new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8)
             ).lines().toList();
+        } catch (IOException e) {
+            throw new RuntimeException("Erro ao ler o arquivo CSV.", e);
+        }
 
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-            List<FinancialTransaction> transactions = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        List<FinancialTransaction> transactions = new ArrayList<>();
 
-            record ParsedRow(String externalId, LocalDate date, BigDecimal rawAmount, String description) {}
-            List<ParsedRow> parsed = new ArrayList<>();
+        record ParsedRow(String externalId, LocalDate date, BigDecimal rawAmount, String description) {}
+        List<ParsedRow> parsed = new ArrayList<>();
 
-            for (int i = 1; i < lines.size(); i++) {
-                String line = lines.get(i).trim();
-                if (line.isBlank()) continue;
+        for (int i = 1; i < lines.size(); i++) {
+            String line = lines.get(i).trim();
+            if (line.isBlank()) continue;
 
-                String[] parts = line.split(",", 4);
-                if (parts.length < 4) continue;
+            String[] parts = line.split(",", 4);
+            if (parts.length < 4) continue;
 
+            try {
                 parsed.add(new ParsedRow(
                         parts[2].trim(),
                         LocalDate.parse(parts[0].trim(), formatter),
                         new BigDecimal(parts[1].trim()),
                         parts[3].trim()
                 ));
+            } catch (DateTimeParseException | NumberFormatException e) {
+                throw new IllegalArgumentException(
+                        "Linha " + (i + 1) + " do CSV é inválida: " + e.getMessage());
             }
-
-            Set<String> existingIds = financialTransactionRepository.findExistingExternalIds(
-                    ctx.getPlan(), parsed.stream().map(ParsedRow::externalId).toList());
-
-            for (ParsedRow row : parsed) {
-                if (existingIds.contains(row.externalId())) continue;
-
-                FinancialTransaction t = new FinancialTransaction();
-                t.setPlan(ctx.getPlan());
-                t.setCreatedBy(ctx.getUser());
-                t.setExternalId(row.externalId());
-                t.setStartDate(row.date());
-                t.setAmount(row.rawAmount().abs());
-                t.setType(row.rawAmount().compareTo(BigDecimal.ZERO) >= 0
-                        ? FinancialTransactionType.CREDIT
-                        : FinancialTransactionType.DEBIT);
-                t.setDescription(row.description());
-
-                transactions.add(t);
-            }
-
-            financialTransactionRepository.saveAll(transactions);
-            return transactions.size();
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao processar o arquivo CSV.", e);
         }
+
+        Set<String> existingIds = financialTransactionRepository.findExistingExternalIds(
+                ctx.getPlan(), parsed.stream().map(ParsedRow::externalId).toList());
+
+        for (ParsedRow row : parsed) {
+            if (existingIds.contains(row.externalId())) continue;
+
+            FinancialTransaction t = new FinancialTransaction();
+            t.setPlan(ctx.getPlan());
+            t.setCreatedBy(ctx.getUser());
+            t.setExternalId(row.externalId());
+            t.setStartDate(row.date());
+            t.setAmount(row.rawAmount().abs());
+            t.setType(row.rawAmount().compareTo(BigDecimal.ZERO) >= 0
+                    ? FinancialTransactionType.CREDIT
+                    : FinancialTransactionType.DEBIT);
+            t.setDescription(row.description());
+
+            transactions.add(t);
+        }
+
+        financialTransactionRepository.saveAll(transactions);
+        return transactions.size();
     }
 }
