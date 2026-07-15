@@ -51,6 +51,9 @@ public class FinancialTransaction {
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TransactionParticipant> participants = new ArrayList<>();
 
+    @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TransactionItem> items = new ArrayList<>();
+
     public FinancialTransaction() {
     }
 
@@ -164,5 +167,9 @@ public class FinancialTransaction {
 
     public List<TransactionParticipant> getParticipants() {
         return participants;
+    }
+
+    public List<TransactionItem> getItems() {
+        return items;
     }
 }
