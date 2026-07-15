@@ -34,6 +34,9 @@ public class FinancialTransactionRequestDto {
     @Valid
     private List<ParticipantInputDto> participants;
 
+    @Valid
+    private List<ItemInputDto> items;
+
     public Long getCategoryId() {
         return categoryId;
     }
@@ -72,5 +75,9 @@ public class FinancialTransactionRequestDto {
 
     public List<ParticipantInputDto> getParticipants() {
         return participants;
+    }
+
+    public List<ItemInputDto> getItems() {
+        return items;
     }
 }
