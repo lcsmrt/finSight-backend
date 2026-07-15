@@ -3,6 +3,7 @@ package com.lcs.finsight.services;
 import com.lcs.finsight.dtos.request.FinancialTransactionFilterDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionSeriesRequestDto;
+import com.lcs.finsight.dtos.request.ItemInputDto;
 import com.lcs.finsight.dtos.request.ParticipantInputDto;
 import com.lcs.finsight.exceptions.FinancialTransactionExceptions;
 import com.lcs.finsight.models.FinancialTransaction;
@@ -10,6 +11,7 @@ import com.lcs.finsight.models.FinancialTransactionCategory;
 import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.RecurrenceMode;
 import com.lcs.finsight.models.SplitMode;
+import com.lcs.finsight.models.TransactionItem;
 import com.lcs.finsight.models.TransactionParticipant;
 import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionRepository;
@@ -136,6 +138,7 @@ public class FinancialTransactionService {
         financialTransaction.setEndDate(dto.getEndDate());
 
         applyParticipants(financialTransaction, dto.getParticipants(), dto.getSplitMode(), dto.getAmount(), ctx);
+        applyItems(financialTransaction, dto.getItems(), ctx);
 
         return financialTransactionRepository.save(financialTransaction);
     }
@@ -165,6 +168,7 @@ public class FinancialTransactionService {
         existingTransaction.setEndDate(dto.getEndDate());
 
         applyParticipants(existingTransaction, dto.getParticipants(), dto.getSplitMode(), dto.getAmount(), ctx);
+        applyItems(existingTransaction, dto.getItems(), ctx);
 
         return financialTransactionRepository.save(existingTransaction);
     }
@@ -224,6 +228,49 @@ public class FinancialTransactionService {
             participant.setShareAmount(share.shareAmount());
             transaction.getParticipants().add(participant);
         }
+    }
+
+    private void applyItems(FinancialTransaction transaction, List<ItemInputDto> itemInputs, PlanContext ctx) {
+        if (itemInputs == null || itemInputs.isEmpty()) {
+            transaction.getItems().clear();
+            return;
+        }
+
+        List<TransactionItem> resolvedItems = new ArrayList<>();
+        BigDecimal itemsTotal = BigDecimal.ZERO;
+        for (ItemInputDto input : itemInputs) {
+            if (input.getDescription() == null || input.getDescription().isBlank()) {
+                throw new IllegalArgumentException("Item description cannot be blank.");
+            }
+            if (input.getAmount() == null || input.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Item amount must be positive.");
+            }
+
+            FinancialTransactionCategory itemCategory = input.getCategoryId() != null
+                    ? financialTransactionCategoryService.findById(input.getCategoryId(), ctx)
+                    : null;
+
+            if (itemCategory != null && itemCategory.getType() != transaction.getType()) {
+                throw new IllegalArgumentException("Item category does not match the transaction type.");
+            }
+
+            TransactionItem item = new TransactionItem();
+            item.setTransaction(transaction);
+            item.setDescription(input.getDescription());
+            item.setAmount(input.getAmount());
+            item.setCategory(itemCategory);
+            item.setQuantity(input.getQuantity() != null ? input.getQuantity() : 1);
+
+            resolvedItems.add(item);
+            itemsTotal = itemsTotal.add(input.getAmount());
+        }
+
+        if (itemsTotal.compareTo(transaction.getAmount()) > 0) {
+            throw new IllegalArgumentException("Items total cannot exceed the transaction amount.");
+        }
+
+        transaction.getItems().clear();
+        transaction.getItems().addAll(resolvedItems);
     }
 
     @Transactional
