@@ -3,6 +3,7 @@ package com.lcs.finsight.dtos.response;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.SplitMode;
+import com.lcs.finsight.models.TransactionItem;
 import com.lcs.finsight.models.TransactionParticipant;
 import com.lcs.finsight.models.User;
 
@@ -25,6 +26,7 @@ public class FinancialTransactionResponseDto {
     private final CreatedByDto createdBy;
     private final SplitMode splitMode;
     private final List<ParticipantDto> participants;
+    private final List<ItemDto> items;
 
     public FinancialTransactionResponseDto(FinancialTransaction transaction) {
         this.id = transaction.getId();
@@ -45,6 +47,9 @@ public class FinancialTransactionResponseDto {
         this.splitMode = transaction.getSplitMode();
         this.participants = transaction.getParticipants().stream()
                 .map(ParticipantDto::new)
+                .collect(Collectors.toList());
+        this.items = transaction.getItems().stream()
+                .map(ItemDto::new)
                 .collect(Collectors.toList());
     }
 
@@ -90,6 +95,44 @@ public class FinancialTransactionResponseDto {
         }
     }
 
+    public static class ItemDto {
+        private final Long id;
+        private final String description;
+        private final BigDecimal amount;
+        private final Integer quantity;
+        private final FinancialTransactionCategoryResponseDto category;
+
+        public ItemDto(TransactionItem item) {
+            this.id = item.getId();
+            this.description = item.getDescription();
+            this.amount = item.getAmount();
+            this.quantity = item.getQuantity();
+            this.category = item.getCategory() != null
+                    ? new FinancialTransactionCategoryResponseDto(item.getCategory())
+                    : null;
+        }
+
+        public Long getId() {
+            return id;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public BigDecimal getAmount() {
+            return amount;
+        }
+
+        public Integer getQuantity() {
+            return quantity;
+        }
+
+        public FinancialTransactionCategoryResponseDto getCategory() {
+            return category;
+        }
+    }
+
     public CreatedByDto getCreatedBy() {
         return createdBy;
     }
@@ -100,6 +143,10 @@ public class FinancialTransactionResponseDto {
 
     public List<ParticipantDto> getParticipants() {
         return participants;
+    }
+
+    public List<ItemDto> getItems() {
+        return items;
     }
 
     public Long getId() {
