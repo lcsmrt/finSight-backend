@@ -34,13 +34,35 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 
-    @Query("SELECT ft.category.description, COALESCE(SUM(ft.amount), 0), ft.category.spendingLimit " +
+    @Query("SELECT ft.category.id, ft.category.description, COALESCE(SUM(ft.amount), 0), ft.category.spendingLimit " +
            "FROM FinancialTransaction ft " +
            "WHERE ft.plan = :plan AND ft.type = :type AND ft.category IS NOT NULL " +
            "AND ft.startDate >= :startDate AND ft.startDate <= :endDate " +
            "GROUP BY ft.category.id, ft.category.description, ft.category.spendingLimit " +
            "ORDER BY SUM(ft.amount) DESC")
     List<Object[]> findCategoryBreakdown(
+            @Param("plan") Plan plan,
+            @Param("type") FinancialTransactionType type,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT ft.category.id, COALESCE(SUM(it.amount), 0) " +
+           "FROM FinancialTransaction ft JOIN ft.items it " +
+           "WHERE ft.plan = :plan AND ft.type = :type AND ft.category IS NOT NULL AND it.category IS NOT NULL " +
+           "AND ft.startDate >= :startDate AND ft.startDate <= :endDate " +
+           "GROUP BY ft.category.id")
+    List<Object[]> findCategorizedItemSumsByParentCategory(
+            @Param("plan") Plan plan,
+            @Param("type") FinancialTransactionType type,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT it.category.id, it.category.description, it.category.spendingLimit, COALESCE(SUM(it.amount), 0) " +
+           "FROM FinancialTransaction ft JOIN ft.items it " +
+           "WHERE ft.plan = :plan AND ft.type = :type AND it.category IS NOT NULL " +
+           "AND ft.startDate >= :startDate AND ft.startDate <= :endDate " +
+           "GROUP BY it.category.id, it.category.description, it.category.spendingLimit")
+    List<Object[]> findCategorizedItemSumsByItemCategory(
             @Param("plan") Plan plan,
             @Param("type") FinancialTransactionType type,
             @Param("startDate") LocalDate startDate,
