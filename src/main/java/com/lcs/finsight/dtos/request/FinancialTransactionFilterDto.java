@@ -9,6 +9,7 @@ public class FinancialTransactionFilterDto extends PaginatedFilterDto {
 
     private FinancialTransactionType type;
     private Long categoryId;
+    private Long memberId;
     private String description;
     private LocalDate startDateFrom;
     private LocalDate startDateTo;
@@ -24,6 +25,9 @@ public class FinancialTransactionFilterDto extends PaginatedFilterDto {
 
     public Long getCategoryId() { return categoryId; }
     public void setCategoryId(Long categoryId) { this.categoryId = categoryId; }
+
+    public Long getMemberId() { return memberId; }
+    public void setMemberId(Long memberId) { this.memberId = memberId; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
