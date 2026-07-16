@@ -220,14 +220,29 @@ public class FinancialTransactionService {
         requireAttributionAuthorizedIfNeeded(resolved, ctx);
 
         transaction.setSplitMode(resolved.splitMode());
-        transaction.getParticipants().clear();
-        for (ResolvedParticipant share : resolved.shares()) {
-            TransactionParticipant participant = new TransactionParticipant();
-            participant.setTransaction(transaction);
-            participant.setMember(share.member());
-            participant.setShareAmount(share.shareAmount());
-            transaction.getParticipants().add(participant);
+
+        Map<Long, TransactionParticipant> existingByMemberId = new LinkedHashMap<>();
+        for (TransactionParticipant participant : transaction.getParticipants()) {
+            existingByMemberId.put(participant.getMember().getId(), participant);
         }
+
+        Set<Long> keptMemberIds = new HashSet<>();
+        for (ResolvedParticipant share : resolved.shares()) {
+            keptMemberIds.add(share.member().getId());
+            TransactionParticipant existing = existingByMemberId.get(share.member().getId());
+            if (existing != null) {
+                existing.setShareAmount(share.shareAmount());
+            } else {
+                TransactionParticipant participant = new TransactionParticipant();
+                participant.setTransaction(transaction);
+                participant.setMember(share.member());
+                participant.setShareAmount(share.shareAmount());
+                transaction.getParticipants().add(participant);
+            }
+        }
+
+        transaction.getParticipants().removeIf(
+                participant -> !keptMemberIds.contains(participant.getMember().getId()));
     }
 
     private void applyItems(FinancialTransaction transaction, List<ItemInputDto> itemInputs, PlanContext ctx) {
