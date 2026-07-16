@@ -28,6 +28,6 @@ public class DashboardController {
     public ResponseEntity<DashboardSummaryDto> getSummary(
             @ParameterObject @ModelAttribute @Valid DashboardFilterDto filter,
             PlanContext ctx) {
-        return ResponseEntity.ok(dashboardService.getSummary(ctx, filter.getStartDate(), filter.getEndDate()));
+        return ResponseEntity.ok(dashboardService.getSummary(ctx, filter.getStartDate(), filter.getEndDate(), filter.getMemberId()));
     }
 }

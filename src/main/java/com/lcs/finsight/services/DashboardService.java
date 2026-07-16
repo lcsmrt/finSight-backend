@@ -36,27 +36,31 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardSummaryDto getSummary(PlanContext ctx, LocalDate startDate, LocalDate endDate) {
+    public DashboardSummaryDto getSummary(PlanContext ctx, LocalDate startDate, LocalDate endDate, Long memberId) {
         Plan plan = ctx.getPlan();
 
         BigDecimal totalIncome = financialTransactionRepository.sumByPlanAndTypeAndDateRange(
-                plan, FinancialTransactionType.CREDIT, startDate, endDate, null);
+                plan, FinancialTransactionType.CREDIT, startDate, endDate, memberId);
 
         BigDecimal totalExpenses = financialTransactionRepository.sumByPlanAndTypeAndDateRange(
-                plan, FinancialTransactionType.DEBIT, startDate, endDate, null);
+                plan, FinancialTransactionType.DEBIT, startDate, endDate, memberId);
 
         BigDecimal netBalance = totalIncome.subtract(totalExpenses);
 
-        List<CategoryBreakdownDto> categoryBreakdown = buildCategoryBreakdown(plan, startDate, endDate);
-        List<MonthlyTrendDto> monthlyTrend = buildMonthlyTrend(plan, startDate, endDate);
-        List<PersonBreakdownDto> personBreakdown = buildPersonBreakdown(plan, startDate, endDate);
+        List<CategoryBreakdownDto> categoryBreakdown = buildCategoryBreakdown(plan, startDate, endDate, memberId);
+        List<MonthlyTrendDto> monthlyTrend = buildMonthlyTrend(plan, startDate, endDate, memberId);
+        List<PersonBreakdownDto> personBreakdown = buildPersonBreakdown(plan, startDate, endDate, memberId);
 
         return new DashboardSummaryDto(totalIncome, totalExpenses, netBalance, categoryBreakdown, monthlyTrend, personBreakdown);
     }
 
-    private List<CategoryBreakdownDto> buildCategoryBreakdown(Plan plan, LocalDate startDate, LocalDate endDate) {
+    private List<CategoryBreakdownDto> buildCategoryBreakdown(Plan plan, LocalDate startDate, LocalDate endDate, Long memberId) {
         List<Object[]> rowsA = financialTransactionRepository.findCategoryBreakdown(
-                plan, FinancialTransactionType.DEBIT, startDate, endDate, null);
+                plan, FinancialTransactionType.DEBIT, startDate, endDate, memberId);
+        // Item-sum queries (B/I) remain plan-total: items are an independent axis from participants and
+        // carry no share attribution. When filtered by member, A is member-scoped while B/I are full item
+        // amounts — a documented Round-2 gap. It is inert today (no live items) and cannot affect the
+        // unfiltered numbers (memberId == null path is unchanged).
         List<Object[]> rowsB = financialTransactionRepository.findCategorizedItemSumsByParentCategory(
                 plan, FinancialTransactionType.DEBIT, startDate, endDate);
         List<Object[]> rowsI = financialTransactionRepository.findCategorizedItemSumsByItemCategory(
@@ -66,8 +70,8 @@ public class DashboardService {
         return categoryBreakdownAssembler.assemble(rowsA, rowsB, rowsI, limitCategories);
     }
 
-    private List<MonthlyTrendDto> buildMonthlyTrend(Plan plan, LocalDate startDate, LocalDate endDate) {
-        List<Object[]> rows = financialTransactionRepository.findMonthlyTrend(plan, startDate, endDate, null);
+    private List<MonthlyTrendDto> buildMonthlyTrend(Plan plan, LocalDate startDate, LocalDate endDate, Long memberId) {
+        List<Object[]> rows = financialTransactionRepository.findMonthlyTrend(plan, startDate, endDate, memberId);
 
         Map<String, MonthlyTrendDto> trendMap = new LinkedHashMap<>();
         for (Object[] row : rows) {
@@ -89,8 +93,8 @@ public class DashboardService {
         return new ArrayList<>(trendMap.values());
     }
 
-    private List<PersonBreakdownDto> buildPersonBreakdown(Plan plan, LocalDate startDate, LocalDate endDate) {
-        List<Object[]> rows = financialTransactionRepository.findPersonBreakdown(plan, startDate, endDate, null);
+    private List<PersonBreakdownDto> buildPersonBreakdown(Plan plan, LocalDate startDate, LocalDate endDate, Long memberId) {
+        List<Object[]> rows = financialTransactionRepository.findPersonBreakdown(plan, startDate, endDate, memberId);
 
         Map<Long, PersonBreakdownDto> personMap = new LinkedHashMap<>();
         for (Object[] row : rows) {
