@@ -23,6 +23,7 @@ import com.lcs.finsight.specifications.FinancialTransactionSpecification;
 import com.lcs.finsight.utils.DateUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -88,7 +89,10 @@ public class FinancialTransactionService {
         return transaction;
     }
 
-    private static final Set<String> SORTABLE_FIELDS = Set.of("startDate", "endDate", "amount", "description");
+    private static final String SORT_CATEGORY = "category";
+    private static final String SORT_ATTRIBUTED_TO = "attributedTo";
+    private static final Set<String> SORTABLE_FIELDS =
+            Set.of("startDate", "endDate", "amount", "description", SORT_CATEGORY, SORT_ATTRIBUTED_TO);
 
     @Transactional(readOnly = true)
     public List<FinancialTransaction> findAllByPlan(PlanContext ctx) {
@@ -97,19 +101,38 @@ public class FinancialTransactionService {
 
     @Transactional(readOnly = true)
     public Page<FinancialTransaction> findAllByPlanPaged(FinancialTransactionFilterDto filter, PlanContext ctx) {
-        PageRequest pageable = filter.toPageable(SORTABLE_FIELDS);
+        String sortBy = filter.getSortBy();
+        if (!SORTABLE_FIELDS.contains(sortBy)) {
+            throw new IllegalArgumentException("Invalid sort field: " + sortBy);
+        }
+        Sort.Direction direction = Sort.Direction.fromString(filter.getSortDirection());
 
-        Specification<FinancialTransaction> spec = Specification.allOf(
+        List<Specification<FinancialTransaction>> specs = new ArrayList<>(List.of(
                 FinancialTransactionSpecification.belongsToPlan(ctx.getPlan()),
                 FinancialTransactionSpecification.typeEquals(filter.getType()),
                 FinancialTransactionSpecification.categoryEquals(filter.getCategoryId()),
-                FinancialTransactionSpecification.descriptionContains(filter.getDescription()),
+                FinancialTransactionSpecification.hasParticipant(filter.getMemberId()),
+                FinancialTransactionSpecification.matchesSearchTerm(filter.getDescription()),
                 FinancialTransactionSpecification.startDateFrom(filter.getStartDateFrom()),
                 FinancialTransactionSpecification.startDateTo(filter.getStartDateTo()),
                 FinancialTransactionSpecification.amountMin(filter.getAmountMin()),
-                FinancialTransactionSpecification.amountMax(filter.getAmountMax()));
+                FinancialTransactionSpecification.amountMax(filter.getAmountMax())));
 
-        return financialTransactionRepository.findAll(spec, pageable);
+        // category / attributed-to are aggregate/association orderings the Specification owns; for those
+        // the Pageable is left unsorted so the spec's ORDER BY is the only one applied. Simple property
+        // sorts (startDate/endDate/amount/description) stay on the Pageable as before.
+        PageRequest pageable;
+        if (SORT_CATEGORY.equals(sortBy)) {
+            specs.add(FinancialTransactionSpecification.orderByCategoryName(direction));
+            pageable = PageRequest.of(filter.getPage(), filter.getSize());
+        } else if (SORT_ATTRIBUTED_TO.equals(sortBy)) {
+            specs.add(FinancialTransactionSpecification.orderByLargestShareParticipant(direction));
+            pageable = PageRequest.of(filter.getPage(), filter.getSize());
+        } else {
+            pageable = PageRequest.of(filter.getPage(), filter.getSize(), Sort.by(direction, sortBy));
+        }
+
+        return financialTransactionRepository.findAll(Specification.allOf(specs), pageable);
     }
 
     @Transactional
