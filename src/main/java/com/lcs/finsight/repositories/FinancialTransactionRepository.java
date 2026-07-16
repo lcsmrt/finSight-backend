@@ -25,26 +25,33 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
     @Query("SELECT ft.externalId FROM FinancialTransaction ft WHERE ft.plan = :plan AND ft.externalId IN :externalIds")
     Set<String> findExistingExternalIds(@Param("plan") Plan plan, @Param("externalIds") Collection<String> externalIds);
 
-    @Query("SELECT COALESCE(SUM(ft.amount), 0) FROM FinancialTransaction ft " +
+    // Participant-based aggregation: sums share_amount via the participants join, with an optional
+    // memberId (null → whole plan). Under the SPLIT-01 invariant (every tx has >=1 participation whose
+    // shares sum to amount) the unfiltered totals are identical to summing ft.amount (AGG-02).
+    @Query("SELECT COALESCE(SUM(tp.shareAmount), 0) FROM FinancialTransaction ft JOIN ft.participants tp " +
            "WHERE ft.plan = :plan AND ft.type = :type " +
-           "AND ft.startDate >= :startDate AND ft.startDate <= :endDate")
+           "AND ft.startDate >= :startDate AND ft.startDate <= :endDate " +
+           "AND (:memberId IS NULL OR tp.member.id = :memberId)")
     BigDecimal sumByPlanAndTypeAndDateRange(
             @Param("plan") Plan plan,
             @Param("type") FinancialTransactionType type,
             @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate);
+            @Param("endDate") LocalDate endDate,
+            @Param("memberId") Long memberId);
 
-    @Query("SELECT ft.category.id, ft.category.description, COALESCE(SUM(ft.amount), 0), ft.category.spendingLimit " +
-           "FROM FinancialTransaction ft " +
+    @Query("SELECT ft.category.id, ft.category.description, COALESCE(SUM(tp.shareAmount), 0), ft.category.spendingLimit " +
+           "FROM FinancialTransaction ft JOIN ft.participants tp " +
            "WHERE ft.plan = :plan AND ft.type = :type AND ft.category IS NOT NULL " +
            "AND ft.startDate >= :startDate AND ft.startDate <= :endDate " +
+           "AND (:memberId IS NULL OR tp.member.id = :memberId) " +
            "GROUP BY ft.category.id, ft.category.description, ft.category.spendingLimit " +
-           "ORDER BY SUM(ft.amount) DESC")
+           "ORDER BY SUM(tp.shareAmount) DESC")
     List<Object[]> findCategoryBreakdown(
             @Param("plan") Plan plan,
             @Param("type") FinancialTransactionType type,
             @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate);
+            @Param("endDate") LocalDate endDate,
+            @Param("memberId") Long memberId);
 
     @Query("SELECT ft.category.id, COALESCE(SUM(it.amount), 0) " +
            "FROM FinancialTransaction ft JOIN ft.items it " +
@@ -68,24 +75,28 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 
-    @Query("SELECT year(ft.startDate), month(ft.startDate), ft.type, COALESCE(SUM(ft.amount), 0) " +
-           "FROM FinancialTransaction ft " +
+    @Query("SELECT year(ft.startDate), month(ft.startDate), ft.type, COALESCE(SUM(tp.shareAmount), 0) " +
+           "FROM FinancialTransaction ft JOIN ft.participants tp " +
            "WHERE ft.plan = :plan " +
            "AND ft.startDate >= :startDate AND ft.startDate <= :endDate " +
+           "AND (:memberId IS NULL OR tp.member.id = :memberId) " +
            "GROUP BY year(ft.startDate), month(ft.startDate), ft.type " +
            "ORDER BY year(ft.startDate), month(ft.startDate)")
     List<Object[]> findMonthlyTrend(
             @Param("plan") Plan plan,
             @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate);
+            @Param("endDate") LocalDate endDate,
+            @Param("memberId") Long memberId);
 
     @Query("SELECT tp.member.id, tp.member.name, ft.type, COALESCE(SUM(tp.shareAmount), 0) " +
            "FROM FinancialTransaction ft JOIN ft.participants tp " +
            "WHERE ft.plan = :plan " +
            "AND ft.startDate >= :startDate AND ft.startDate <= :endDate " +
+           "AND (:memberId IS NULL OR tp.member.id = :memberId) " +
            "GROUP BY tp.member.id, tp.member.name, ft.type")
     List<Object[]> findPersonBreakdown(
             @Param("plan") Plan plan,
             @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate);
+            @Param("endDate") LocalDate endDate,
+            @Param("memberId") Long memberId);
 }

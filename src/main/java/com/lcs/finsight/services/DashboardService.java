@@ -40,10 +40,10 @@ public class DashboardService {
         Plan plan = ctx.getPlan();
 
         BigDecimal totalIncome = financialTransactionRepository.sumByPlanAndTypeAndDateRange(
-                plan, FinancialTransactionType.CREDIT, startDate, endDate);
+                plan, FinancialTransactionType.CREDIT, startDate, endDate, null);
 
         BigDecimal totalExpenses = financialTransactionRepository.sumByPlanAndTypeAndDateRange(
-                plan, FinancialTransactionType.DEBIT, startDate, endDate);
+                plan, FinancialTransactionType.DEBIT, startDate, endDate, null);
 
         BigDecimal netBalance = totalIncome.subtract(totalExpenses);
 
@@ -56,7 +56,7 @@ public class DashboardService {
 
     private List<CategoryBreakdownDto> buildCategoryBreakdown(Plan plan, LocalDate startDate, LocalDate endDate) {
         List<Object[]> rowsA = financialTransactionRepository.findCategoryBreakdown(
-                plan, FinancialTransactionType.DEBIT, startDate, endDate);
+                plan, FinancialTransactionType.DEBIT, startDate, endDate, null);
         List<Object[]> rowsB = financialTransactionRepository.findCategorizedItemSumsByParentCategory(
                 plan, FinancialTransactionType.DEBIT, startDate, endDate);
         List<Object[]> rowsI = financialTransactionRepository.findCategorizedItemSumsByItemCategory(
@@ -67,7 +67,7 @@ public class DashboardService {
     }
 
     private List<MonthlyTrendDto> buildMonthlyTrend(Plan plan, LocalDate startDate, LocalDate endDate) {
-        List<Object[]> rows = financialTransactionRepository.findMonthlyTrend(plan, startDate, endDate);
+        List<Object[]> rows = financialTransactionRepository.findMonthlyTrend(plan, startDate, endDate, null);
 
         Map<String, MonthlyTrendDto> trendMap = new LinkedHashMap<>();
         for (Object[] row : rows) {
@@ -90,7 +90,7 @@ public class DashboardService {
     }
 
     private List<PersonBreakdownDto> buildPersonBreakdown(Plan plan, LocalDate startDate, LocalDate endDate) {
-        List<Object[]> rows = financialTransactionRepository.findPersonBreakdown(plan, startDate, endDate);
+        List<Object[]> rows = financialTransactionRepository.findPersonBreakdown(plan, startDate, endDate, null);
 
         Map<Long, PersonBreakdownDto> personMap = new LinkedHashMap<>();
         for (Object[] row : rows) {
