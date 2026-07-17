@@ -10,6 +10,7 @@ import com.lcs.finsight.dtos.response.FinancialTransactionSeriesResponseDto;
 import com.lcs.finsight.dtos.response.PagedResponseDto;
 import com.lcs.finsight.dtos.response.RecurrenceDefinitionResponseDto;
 import com.lcs.finsight.models.FinancialTransaction;
+import com.lcs.finsight.models.SeriesEditScope;
 import com.lcs.finsight.security.PlanContext;
 import com.lcs.finsight.services.FinancialTransactionService;
 import com.lcs.finsight.utils.ApiRoutes;
@@ -97,12 +98,14 @@ public class FinancialTransactionController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Deletes a series of recurring transactions")
+    @Operation(summary = "Deletes a series of recurring transactions (This one / This and following / All)")
     @DeleteMapping("/series/{seriesId}")
     public ResponseEntity<Void> deleteSeries(
             @PathVariable String seriesId,
+            @RequestParam(defaultValue = "ALL") SeriesEditScope scope,
+            @RequestParam(required = false) Long pivotOccurrenceId,
             PlanContext ctx) {
-        financialTransactionService.deleteSeries(seriesId, ctx);
+        financialTransactionService.deleteSeries(seriesId, scope, pivotOccurrenceId, ctx);
         return ResponseEntity.noContent().build();
     }
 

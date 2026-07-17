@@ -408,21 +408,75 @@ public class FinancialTransactionService {
     }
 
     @Transactional
-    public void deleteSeries(String seriesId, PlanContext ctx) {
+    public void deleteSeries(String seriesId, SeriesEditScope scope, Long pivotOccurrenceId, PlanContext ctx) {
         List<FinancialTransaction> occurrences = financialTransactionRepository.findAllByPlanAndSeriesId(ctx.getPlan(), seriesId);
 
         if (occurrences.isEmpty()) {
             throw new FinancialTransactionExceptions.FinancialTransactionSeriesNotFoundException(seriesId);
         }
 
-        for (FinancialTransaction occurrence : occurrences) {
+        FinancialTransaction pivot = null;
+        if (scope != SeriesEditScope.ALL) {
+            pivot = occurrences.stream()
+                    .filter(occurrence -> occurrence.getId().equals(pivotOccurrenceId))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Pivot occurrence not found in this series."));
+        }
+
+        List<FinancialTransaction> inScope;
+        switch (scope) {
+            case THIS_ONE -> inScope = List.of(pivot);
+            case THIS_AND_FOLLOWING -> {
+                LocalDate pivotStartDate = pivot.getStartDate();
+                inScope = occurrences.stream()
+                        .filter(occurrence -> !occurrence.getStartDate().isBefore(pivotStartDate))
+                        .toList();
+            }
+            case ALL -> inScope = occurrences;
+            default -> throw new IllegalStateException("Unexpected series edit scope: " + scope);
+        }
+
+        for (FinancialTransaction occurrence : inScope) {
             planAuthorization.requireCanModifyTransaction(ctx.getRole(), occurrence.getCreatedBy(), ctx.getUser());
         }
 
-        financialTransactionRepository.deleteAll(occurrences);
+        financialTransactionRepository.deleteAll(inScope);
 
-        recurrenceDefinitionRepository.findByPlanAndSeriesId(ctx.getPlan(), seriesId)
-                .ifPresent(recurrenceDefinitionRepository::delete);
+        Set<Long> deletedIds = new HashSet<>();
+        for (FinancialTransaction occurrence : inScope) {
+            deletedIds.add(occurrence.getId());
+        }
+        List<FinancialTransaction> remaining = occurrences.stream()
+                .filter(occurrence -> !deletedIds.contains(occurrence.getId()))
+                .toList();
+
+        RecurrenceDefinition definition = recurrenceDefinitionRepository
+                .findByPlanAndSeriesId(ctx.getPlan(), seriesId)
+                .orElse(null);
+
+        if (remaining.isEmpty()) {
+            if (definition != null) {
+                recurrenceDefinitionRepository.delete(definition);
+            }
+            return;
+        }
+
+        // THIS_AND_FOLLOWING left earlier occurrences behind: shrink the definition's range so a
+        // later regeneration won't recreate the deleted tail. THIS_ONE leaves a gap the exception-less
+        // model can't represent, so the definition is untouched (matching edit THIS_ONE).
+        if (scope == SeriesEditScope.THIS_AND_FOLLOWING && definition != null) {
+            if (definition.getMode() == RecurrenceMode.INSTALLMENT) {
+                int firstParcel = definition.getFirstParcel() != null ? definition.getFirstParcel() : 1;
+                definition.setParcelsNumber(firstParcel + remaining.size() - 1);
+            } else {
+                LocalDate newEndDate = remaining.stream()
+                        .map(FinancialTransaction::getStartDate)
+                        .max(LocalDate::compareTo)
+                        .orElse(definition.getEndDate());
+                definition.setEndDate(newEndDate);
+            }
+            recurrenceDefinitionRepository.save(definition);
+        }
     }
 
     @Transactional(readOnly = true)
