@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest(webEnvironment = WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(TestContainersConfig.class)
+@Import({TestContainersConfig.class, TestAuthHelper.class, Fixtures.class})
 public abstract class AbstractIntegrationTest {
 
     @Autowired

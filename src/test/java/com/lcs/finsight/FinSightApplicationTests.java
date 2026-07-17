@@ -1,10 +1,9 @@
 package com.lcs.finsight;
 
+import com.lcs.finsight.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class FinSightApplicationTests {
+class FinSightApplicationTests extends AbstractIntegrationTest {
 
 	@Test
 	void contextLoads() {
