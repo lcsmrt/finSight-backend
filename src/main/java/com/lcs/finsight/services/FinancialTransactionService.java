@@ -9,6 +9,8 @@ import com.lcs.finsight.exceptions.FinancialTransactionExceptions;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionCategory;
 import com.lcs.finsight.models.FinancialTransactionType;
+import com.lcs.finsight.models.RecurrenceDefinition;
+import com.lcs.finsight.models.RecurrenceDefinitionParticipant;
 import com.lcs.finsight.models.RecurrenceMode;
 import com.lcs.finsight.models.SplitMode;
 import com.lcs.finsight.models.TransactionItem;
@@ -16,6 +18,7 @@ import com.lcs.finsight.models.TransactionParticipant;
 import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.FinancialTransactionRepository;
 import com.lcs.finsight.repositories.PlanMembershipRepository;
+import com.lcs.finsight.repositories.RecurrenceDefinitionRepository;
 import com.lcs.finsight.repositories.UserRepository;
 import com.lcs.finsight.security.PlanAuthorization;
 import com.lcs.finsight.security.PlanContext;
@@ -56,6 +59,7 @@ public class FinancialTransactionService {
     private final SplitResolver splitResolver;
     private final PlanMembershipRepository planMembershipRepository;
     private final UserRepository userRepository;
+    private final RecurrenceDefinitionRepository recurrenceDefinitionRepository;
 
     public FinancialTransactionService(
             FinancialTransactionRepository financialTransactionRepository,
@@ -65,7 +69,8 @@ public class FinancialTransactionService {
             PlanAuthorization planAuthorization,
             SplitResolver splitResolver,
             PlanMembershipRepository planMembershipRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            RecurrenceDefinitionRepository recurrenceDefinitionRepository
     ) {
         this.financialTransactionRepository = financialTransactionRepository;
         this.financialTransactionCategoryService = financialTransactionCategoryService;
@@ -75,6 +80,7 @@ public class FinancialTransactionService {
         this.splitResolver = splitResolver;
         this.planMembershipRepository = planMembershipRepository;
         this.userRepository = userRepository;
+        this.recurrenceDefinitionRepository = recurrenceDefinitionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -356,6 +362,38 @@ public class FinancialTransactionService {
                 dto, ctx.getPlan(), ctx.getUser(), category, seriesId,
                 resolvedParticipants.splitMode(), resolvedParticipants.shares());
 
+        RecurrenceDefinition definition = new RecurrenceDefinition();
+        definition.setPlan(ctx.getPlan());
+        definition.setCreatedBy(ctx.getUser());
+        definition.setCategory(category);
+        definition.setSeriesId(seriesId);
+        definition.setType(dto.getType());
+        definition.setAmount(dto.getAmount());
+        definition.setDescription(dto.getDescription());
+        definition.setMode(dto.getMode());
+        definition.setRecurrenceInterval(dto.getInterval());
+        definition.setParcelsNumber(dto.getParcelsNumber());
+        definition.setFirstParcel(dto.getMode() == RecurrenceMode.INSTALLMENT
+                ? (dto.getCurrentParcel() != null ? dto.getCurrentParcel() : 1)
+                : null);
+        definition.setStartDate(dto.getStartDate());
+        definition.setEndDate(dto.getEndDate());
+        definition.setSplitMode(resolvedParticipants.splitMode());
+
+        for (ResolvedParticipant share : resolvedParticipants.shares()) {
+            RecurrenceDefinitionParticipant participant = new RecurrenceDefinitionParticipant();
+            participant.setDefinition(definition);
+            participant.setMember(share.member());
+            participant.setShareAmount(share.shareAmount());
+            definition.getParticipants().add(participant);
+        }
+
+        recurrenceDefinitionRepository.save(definition);
+
+        for (FinancialTransaction occurrence : occurrences) {
+            occurrence.setRecurrenceDefinition(definition);
+        }
+
         return financialTransactionRepository.saveAll(occurrences);
     }
 
@@ -372,6 +410,9 @@ public class FinancialTransactionService {
         }
 
         financialTransactionRepository.deleteAll(occurrences);
+
+        recurrenceDefinitionRepository.findByPlanAndSeriesId(ctx.getPlan(), seriesId)
+                .ifPresent(recurrenceDefinitionRepository::delete);
     }
 
     @Transactional

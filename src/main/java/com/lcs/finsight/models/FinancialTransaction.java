@@ -41,6 +41,10 @@ public class FinancialTransaction {
     @Column(name = "series_id")
     private String seriesId;
     private Integer parcelsNumber;
+
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "recurrence_definition_id", foreignKey = @ForeignKey(name = "fk_ft_recurrence_definition"))
+    private RecurrenceDefinition recurrenceDefinition;
     private LocalDate startDate;
     private LocalDate endDate;
 
@@ -139,6 +143,14 @@ public class FinancialTransaction {
 
     public void setParcelsNumber(Integer parcelsNumber) {
         this.parcelsNumber = parcelsNumber;
+    }
+
+    public RecurrenceDefinition getRecurrenceDefinition() {
+        return recurrenceDefinition;
+    }
+
+    public void setRecurrenceDefinition(RecurrenceDefinition recurrenceDefinition) {
+        this.recurrenceDefinition = recurrenceDefinition;
     }
 
     public LocalDate getStartDate() {
