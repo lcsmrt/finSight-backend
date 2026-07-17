@@ -3,10 +3,12 @@ package com.lcs.finsight.controllers;
 import com.lcs.finsight.dtos.request.FinancialTransactionFilterDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionSeriesRequestDto;
+import com.lcs.finsight.dtos.request.SeriesEditRequestDto;
 import com.lcs.finsight.dtos.response.FinancialTransactionImportResponseDto;
 import com.lcs.finsight.dtos.response.FinancialTransactionResponseDto;
 import com.lcs.finsight.dtos.response.FinancialTransactionSeriesResponseDto;
 import com.lcs.finsight.dtos.response.PagedResponseDto;
+import com.lcs.finsight.dtos.response.RecurrenceDefinitionResponseDto;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.security.PlanContext;
 import com.lcs.finsight.services.FinancialTransactionService;
@@ -102,5 +104,22 @@ public class FinancialTransactionController {
             PlanContext ctx) {
         financialTransactionService.deleteSeries(seriesId, ctx);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Fetches a series' recurrence definition (for edit-form prefill)")
+    @GetMapping("/series/{seriesId}")
+    public ResponseEntity<RecurrenceDefinitionResponseDto> getSeries(
+            @PathVariable String seriesId,
+            PlanContext ctx) {
+        return ResponseEntity.ok(financialTransactionService.getSeriesDefinition(seriesId, ctx));
+    }
+
+    @Operation(summary = "Edits a series of recurring transactions (This one / This and following / All)")
+    @PutMapping("/series/{seriesId}")
+    public ResponseEntity<FinancialTransactionSeriesResponseDto> editSeries(
+            @PathVariable String seriesId,
+            @RequestBody @Valid SeriesEditRequestDto dto,
+            PlanContext ctx) {
+        return ResponseEntity.ok(financialTransactionService.editSeries(seriesId, dto, ctx));
     }
 }
