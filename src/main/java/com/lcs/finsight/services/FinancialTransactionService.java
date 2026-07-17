@@ -502,14 +502,7 @@ public class FinancialTransactionService {
             pivot.setCategory(category);
             pivot.setSplitMode(resolved.splitMode());
 
-            pivot.getParticipants().clear();
-            for (ResolvedParticipant share : resolved.shares()) {
-                TransactionParticipant participant = new TransactionParticipant();
-                participant.setTransaction(pivot);
-                participant.setMember(share.member());
-                participant.setShareAmount(share.shareAmount());
-                pivot.getParticipants().add(participant);
-            }
+            reconcileParticipants(pivot, resolved.shares());
 
             financialTransactionRepository.save(pivot);
             return new FinancialTransactionSeriesResponseDto(List.of(pivot));
@@ -522,14 +515,7 @@ public class FinancialTransactionService {
         definition.setParcelsNumber(dto.getParcelsNumber());
         definition.setEndDate(dto.getEndDate());
 
-        definition.getParticipants().clear();
-        for (ResolvedParticipant share : resolved.shares()) {
-            RecurrenceDefinitionParticipant participant = new RecurrenceDefinitionParticipant();
-            participant.setDefinition(definition);
-            participant.setMember(share.member());
-            participant.setShareAmount(share.shareAmount());
-            definition.getParticipants().add(participant);
-        }
+        reconcileDefinitionParticipants(definition, resolved.shares());
 
         recurrenceDefinitionRepository.save(definition);
 
@@ -546,6 +532,56 @@ public class FinancialTransactionService {
         combined.addAll(result.toCreate());
 
         return new FinancialTransactionSeriesResponseDto(combined);
+    }
+
+    private void reconcileParticipants(FinancialTransaction transaction, List<ResolvedParticipant> shares) {
+        Map<Long, TransactionParticipant> existingByMemberId = new LinkedHashMap<>();
+        for (TransactionParticipant participant : transaction.getParticipants()) {
+            existingByMemberId.put(participant.getMember().getId(), participant);
+        }
+
+        Set<Long> keptMemberIds = new HashSet<>();
+        for (ResolvedParticipant share : shares) {
+            keptMemberIds.add(share.member().getId());
+            TransactionParticipant existing = existingByMemberId.get(share.member().getId());
+            if (existing != null) {
+                existing.setShareAmount(share.shareAmount());
+            } else {
+                TransactionParticipant participant = new TransactionParticipant();
+                participant.setTransaction(transaction);
+                participant.setMember(share.member());
+                participant.setShareAmount(share.shareAmount());
+                transaction.getParticipants().add(participant);
+            }
+        }
+
+        transaction.getParticipants().removeIf(
+                participant -> !keptMemberIds.contains(participant.getMember().getId()));
+    }
+
+    private void reconcileDefinitionParticipants(RecurrenceDefinition definition, List<ResolvedParticipant> shares) {
+        Map<Long, RecurrenceDefinitionParticipant> existingByMemberId = new LinkedHashMap<>();
+        for (RecurrenceDefinitionParticipant participant : definition.getParticipants()) {
+            existingByMemberId.put(participant.getMember().getId(), participant);
+        }
+
+        Set<Long> keptMemberIds = new HashSet<>();
+        for (ResolvedParticipant share : shares) {
+            keptMemberIds.add(share.member().getId());
+            RecurrenceDefinitionParticipant existing = existingByMemberId.get(share.member().getId());
+            if (existing != null) {
+                existing.setShareAmount(share.shareAmount());
+            } else {
+                RecurrenceDefinitionParticipant participant = new RecurrenceDefinitionParticipant();
+                participant.setDefinition(definition);
+                participant.setMember(share.member());
+                participant.setShareAmount(share.shareAmount());
+                definition.getParticipants().add(participant);
+            }
+        }
+
+        definition.getParticipants().removeIf(
+                participant -> !keptMemberIds.contains(participant.getMember().getId()));
     }
 
     @Transactional

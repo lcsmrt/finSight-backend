@@ -10,7 +10,11 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Pure, dependency-free reconciliation of a series' occurrences against its (already updated)
@@ -117,14 +121,32 @@ public class SeriesRegenerator {
         tx.setParcelsNumber(slot.parcelsNumber());
         tx.setFrequency(slot.frequency());
 
-        tx.getParticipants().clear();
-        for (ResolvedParticipant share : shares) {
-            TransactionParticipant participant = new TransactionParticipant();
-            participant.setTransaction(tx);
-            participant.setMember(share.member());
-            participant.setShareAmount(share.shareAmount());
-            tx.getParticipants().add(participant);
+        reconcileParticipants(tx, shares);
+    }
+
+    private void reconcileParticipants(FinancialTransaction tx, List<ResolvedParticipant> shares) {
+        Map<Long, TransactionParticipant> existingByMemberId = new HashMap<>();
+        for (TransactionParticipant participant : tx.getParticipants()) {
+            existingByMemberId.put(participant.getMember().getId(), participant);
         }
+
+        Set<Long> keptMemberIds = new HashSet<>();
+        for (ResolvedParticipant share : shares) {
+            keptMemberIds.add(share.member().getId());
+            TransactionParticipant existing = existingByMemberId.get(share.member().getId());
+            if (existing != null) {
+                existing.setShareAmount(share.shareAmount());
+            } else {
+                TransactionParticipant participant = new TransactionParticipant();
+                participant.setTransaction(tx);
+                participant.setMember(share.member());
+                participant.setShareAmount(share.shareAmount());
+                tx.getParticipants().add(participant);
+            }
+        }
+
+        tx.getParticipants().removeIf(
+                participant -> !keptMemberIds.contains(participant.getMember().getId()));
     }
 
     private FinancialTransaction buildNewOccurrence(TargetOccurrence slot, RecurrenceDefinition def,
