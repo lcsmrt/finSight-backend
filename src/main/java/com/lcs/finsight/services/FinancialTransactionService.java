@@ -5,6 +5,9 @@ import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionSeriesRequestDto;
 import com.lcs.finsight.dtos.request.ItemInputDto;
 import com.lcs.finsight.dtos.request.ParticipantInputDto;
+import com.lcs.finsight.dtos.request.SeriesEditRequestDto;
+import com.lcs.finsight.dtos.response.FinancialTransactionSeriesResponseDto;
+import com.lcs.finsight.dtos.response.RecurrenceDefinitionResponseDto;
 import com.lcs.finsight.exceptions.FinancialTransactionExceptions;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionCategory;
@@ -12,6 +15,7 @@ import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.RecurrenceDefinition;
 import com.lcs.finsight.models.RecurrenceDefinitionParticipant;
 import com.lcs.finsight.models.RecurrenceMode;
+import com.lcs.finsight.models.SeriesEditScope;
 import com.lcs.finsight.models.SplitMode;
 import com.lcs.finsight.models.TransactionItem;
 import com.lcs.finsight.models.TransactionParticipant;
@@ -45,8 +49,11 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class FinancialTransactionService {
@@ -60,6 +67,7 @@ public class FinancialTransactionService {
     private final PlanMembershipRepository planMembershipRepository;
     private final UserRepository userRepository;
     private final RecurrenceDefinitionRepository recurrenceDefinitionRepository;
+    private final SeriesRegenerator seriesRegenerator;
 
     public FinancialTransactionService(
             FinancialTransactionRepository financialTransactionRepository,
@@ -70,7 +78,8 @@ public class FinancialTransactionService {
             SplitResolver splitResolver,
             PlanMembershipRepository planMembershipRepository,
             UserRepository userRepository,
-            RecurrenceDefinitionRepository recurrenceDefinitionRepository
+            RecurrenceDefinitionRepository recurrenceDefinitionRepository,
+            SeriesRegenerator seriesRegenerator
     ) {
         this.financialTransactionRepository = financialTransactionRepository;
         this.financialTransactionCategoryService = financialTransactionCategoryService;
@@ -81,6 +90,7 @@ public class FinancialTransactionService {
         this.planMembershipRepository = planMembershipRepository;
         this.userRepository = userRepository;
         this.recurrenceDefinitionRepository = recurrenceDefinitionRepository;
+        this.seriesRegenerator = seriesRegenerator;
     }
 
     @Transactional(readOnly = true)
@@ -413,6 +423,129 @@ public class FinancialTransactionService {
 
         recurrenceDefinitionRepository.findByPlanAndSeriesId(ctx.getPlan(), seriesId)
                 .ifPresent(recurrenceDefinitionRepository::delete);
+    }
+
+    @Transactional(readOnly = true)
+    public RecurrenceDefinitionResponseDto getSeriesDefinition(String seriesId, PlanContext ctx) {
+        RecurrenceDefinition definition = recurrenceDefinitionRepository.findByPlanAndSeriesId(ctx.getPlan(), seriesId)
+                .orElseThrow(() -> new FinancialTransactionExceptions.FinancialTransactionSeriesNotFoundException(seriesId));
+        return new RecurrenceDefinitionResponseDto(definition);
+    }
+
+    private static final Pattern INSTALLMENT_SUFFIX_PATTERN = Pattern.compile("\\(\\d+/\\d+\\)$");
+
+    private String extractInstallmentSuffix(String description) {
+        if (description == null) {
+            return null;
+        }
+        Matcher matcher = INSTALLMENT_SUFFIX_PATTERN.matcher(description);
+        return matcher.find() ? matcher.group() : null;
+    }
+
+    @Transactional
+    public FinancialTransactionSeriesResponseDto editSeries(String seriesId, SeriesEditRequestDto dto, PlanContext ctx) {
+        planAuthorization.requireCanCreateTransaction(ctx.getRole());
+
+        RecurrenceDefinition definition = recurrenceDefinitionRepository.findByPlanAndSeriesId(ctx.getPlan(), seriesId)
+                .orElseThrow(() -> new FinancialTransactionExceptions.FinancialTransactionSeriesNotFoundException(seriesId));
+
+        List<FinancialTransaction> occurrences = financialTransactionRepository.findAllByPlanAndSeriesId(ctx.getPlan(), seriesId);
+
+        FinancialTransactionCategory category = dto.getCategoryId() != null
+                ? financialTransactionCategoryService.findById(dto.getCategoryId(), ctx)
+                : null;
+
+        if (category != null && category.getType() != dto.getType()) {
+            throw new IllegalArgumentException("Category does not match the transaction type.");
+        }
+
+        if (dto.getParcelsNumber() != null
+                && !Objects.equals(dto.getParcelsNumber(), definition.getParcelsNumber())
+                && dto.getScope() != SeriesEditScope.ALL) {
+            throw new IllegalArgumentException(
+                    "Changing the number of parcels is only allowed when editing the whole series.");
+        }
+
+        ResolvedParticipants resolved = resolveParticipants(dto.getParticipants(), dto.getSplitMode(), dto.getAmount(), ctx);
+        requireAttributionAuthorizedIfNeeded(resolved, ctx);
+
+        FinancialTransaction pivot = null;
+        if (dto.getScope() != SeriesEditScope.ALL) {
+            Long pivotOccurrenceId = dto.getPivotOccurrenceId();
+            pivot = occurrences.stream()
+                    .filter(occurrence -> occurrence.getId().equals(pivotOccurrenceId))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Pivot occurrence not found in this series."));
+        }
+
+        List<FinancialTransaction> inScope;
+        switch (dto.getScope()) {
+            case THIS_ONE -> inScope = List.of(pivot);
+            case THIS_AND_FOLLOWING -> {
+                LocalDate pivotStartDate = pivot.getStartDate();
+                inScope = occurrences.stream()
+                        .filter(occurrence -> !occurrence.getStartDate().isBefore(pivotStartDate))
+                        .toList();
+            }
+            case ALL -> inScope = occurrences;
+            default -> throw new IllegalStateException("Unexpected series edit scope: " + dto.getScope());
+        }
+
+        for (FinancialTransaction occurrence : inScope) {
+            planAuthorization.requireCanModifyTransaction(ctx.getRole(), occurrence.getCreatedBy(), ctx.getUser());
+        }
+
+        if (dto.getScope() == SeriesEditScope.THIS_ONE) {
+            String suffix = extractInstallmentSuffix(pivot.getDescription());
+            pivot.setDescription(suffix != null ? dto.getDescription() + " " + suffix : dto.getDescription());
+            pivot.setAmount(dto.getAmount());
+            pivot.setCategory(category);
+            pivot.setSplitMode(resolved.splitMode());
+
+            pivot.getParticipants().clear();
+            for (ResolvedParticipant share : resolved.shares()) {
+                TransactionParticipant participant = new TransactionParticipant();
+                participant.setTransaction(pivot);
+                participant.setMember(share.member());
+                participant.setShareAmount(share.shareAmount());
+                pivot.getParticipants().add(participant);
+            }
+
+            financialTransactionRepository.save(pivot);
+            return new FinancialTransactionSeriesResponseDto(List.of(pivot));
+        }
+
+        definition.setAmount(dto.getAmount());
+        definition.setDescription(dto.getDescription());
+        definition.setCategory(category);
+        definition.setSplitMode(resolved.splitMode());
+        definition.setParcelsNumber(dto.getParcelsNumber());
+        definition.setEndDate(dto.getEndDate());
+
+        definition.getParticipants().clear();
+        for (ResolvedParticipant share : resolved.shares()) {
+            RecurrenceDefinitionParticipant participant = new RecurrenceDefinitionParticipant();
+            participant.setDefinition(definition);
+            participant.setMember(share.member());
+            participant.setShareAmount(share.shareAmount());
+            definition.getParticipants().add(participant);
+        }
+
+        recurrenceDefinitionRepository.save(definition);
+
+        LocalDate pivotDate = dto.getScope() == SeriesEditScope.ALL ? null : pivot.getStartDate();
+
+        SeriesRegenerator.SeriesEditResult result = seriesRegenerator.reconcile(
+                definition, occurrences, resolved.shares(), dto.getScope(), pivotDate);
+
+        financialTransactionRepository.saveAll(result.toUpdate());
+        financialTransactionRepository.saveAll(result.toCreate());
+        financialTransactionRepository.deleteAll(result.toDelete());
+
+        List<FinancialTransaction> combined = new ArrayList<>(result.toUpdate());
+        combined.addAll(result.toCreate());
+
+        return new FinancialTransactionSeriesResponseDto(combined);
     }
 
     @Transactional
