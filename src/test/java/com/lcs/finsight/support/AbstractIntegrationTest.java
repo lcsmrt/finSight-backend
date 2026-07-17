@@ -22,6 +22,12 @@ public abstract class AbstractIntegrationTest {
     protected MockMvc mockMvc;
 
     @Autowired
+    protected TestAuthHelper testAuthHelper;
+
+    @Autowired
+    protected Fixtures fixtures;
+
+    @Autowired
     private DataSource dataSource;
 
     @BeforeEach
