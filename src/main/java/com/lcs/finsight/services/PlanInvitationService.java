@@ -60,27 +60,30 @@ public class PlanInvitationService {
         return loadValidInvitation(token);
     }
 
+    /** Outcome of accepting an invitation: the membership, and whether it was newly created. */
+    public record AcceptResult(PlanMembership membership, boolean created) {}
+
     /**
      * Accepts an invitation for the acting user. Idempotent: if the user is already a
-     * member the existing membership is returned without duplicating it. EMAIL invites
-     * are single-use (marked ACCEPTED); LINK invites stay PENDING (reusable).
+     * member the existing membership is returned without duplicating it ({@code created = false}).
+     * EMAIL invites are single-use (marked ACCEPTED); LINK invites stay PENDING (reusable).
      */
     @Transactional
-    public PlanMembership accept(String token, User actor) {
+    public AcceptResult accept(String token, User actor) {
         PlanInvitation invitation = loadValidInvitation(token);
 
         if (invitation.getType() == InvitationType.EMAIL
                 && !invitation.getEmail().equalsIgnoreCase(actor.getEmail())) {
-            throw new PlanExceptions.InvitationInvalidException(
-                    "This invitation is bound to a different email address.");
+            throw new PlanExceptions.InvitationEmailMismatchException();
         }
 
         if (membershipRepository.existsByPlanAndUser(invitation.getPlan(), actor)) {
             if (invitation.getType() == InvitationType.EMAIL) {
                 invitation.setStatus(InvitationStatus.ACCEPTED);
             }
-            return membershipRepository.findByPlanAndUser(invitation.getPlan(), actor)
+            PlanMembership existing = membershipRepository.findByPlanAndUser(invitation.getPlan(), actor)
                     .orElseThrow(() -> new PlanExceptions.NotAMemberException(invitation.getPlan().getId()));
+            return new AcceptResult(existing, false);
         }
 
         PlanMembership membership = new PlanMembership();
@@ -93,7 +96,7 @@ public class PlanInvitationService {
             invitation.setStatus(InvitationStatus.ACCEPTED);
         }
 
-        return savedMembership;
+        return new AcceptResult(savedMembership, true);
     }
 
     /** Only the plan owner may list the active plan's invitations. */
@@ -108,12 +111,8 @@ public class PlanInvitationService {
     public void revoke(PlanContext ctx, Long invitationId) {
         planAuthorization.requireOwner(ctx.getRole());
 
-        PlanInvitation invitation = invitationRepository.findById(invitationId)
+        PlanInvitation invitation = invitationRepository.findByIdAndPlan(invitationId, ctx.getPlan())
                 .orElseThrow(() -> new PlanExceptions.InvitationNotFoundException(String.valueOf(invitationId)));
-
-        if (!invitation.getPlan().getId().equals(ctx.getPlan().getId())) {
-            throw new PlanExceptions.InvitationNotFoundException(String.valueOf(invitationId));
-        }
 
         invitation.setStatus(InvitationStatus.REVOKED);
     }
@@ -130,11 +129,11 @@ public class PlanInvitationService {
                 .orElseThrow(() -> new PlanExceptions.InvitationNotFoundException(token));
 
         if (invitation.getStatus() == InvitationStatus.REVOKED) {
-            throw new PlanExceptions.InvitationInvalidException("This invitation has been revoked.");
+            throw new PlanExceptions.InvitationRevokedException();
         }
         if (invitation.getType() == InvitationType.EMAIL
                 && invitation.getStatus() == InvitationStatus.ACCEPTED) {
-            throw new PlanExceptions.InvitationInvalidException("This invitation has already been used.");
+            throw new PlanExceptions.InvitationAlreadyUsedException();
         }
         if (invitation.getExpiresAt() != null && invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new PlanExceptions.InvitationExpiredException("This invitation has expired.");

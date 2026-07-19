@@ -1,5 +1,6 @@
 package com.lcs.finsight.services;
 
+import com.lcs.finsight.exceptions.FinancialTransactionExceptions;
 import com.lcs.finsight.models.SplitMode;
 import org.springframework.stereotype.Component;
 
@@ -50,7 +51,7 @@ public class SplitResolver {
                 .setScale(2, RoundingMode.HALF_UP);
 
         if (sum.compareTo(scaledAmount) != 0) {
-            throw new IllegalArgumentException("Participant shares must sum to the transaction amount");
+            throw new FinancialTransactionExceptions.ParticipantSharesMismatchException();
         }
 
         List<ResolvedShare> shares = new ArrayList<>();

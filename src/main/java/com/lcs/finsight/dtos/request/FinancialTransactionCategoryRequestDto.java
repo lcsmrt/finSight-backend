@@ -8,23 +8,23 @@ import java.math.BigDecimal;
 
 public class FinancialTransactionCategoryRequestDto {
 
-	@NotNull(message = "Type cannot be null.")
-	private FinancialTransactionType type;
+    @NotNull(message = "Type cannot be null.")
+    private FinancialTransactionType type;
 
-	@NotBlank(message = "Description cannot be blank.")
-	private String description;
+    @NotBlank(message = "Description cannot be blank.")
+    private String description;
 
-	private BigDecimal spendingLimit;
+    private BigDecimal spendingLimit;
 
-	public FinancialTransactionType getType() {
-		return type;
-	}
+    public FinancialTransactionType getType() {
+        return type;
+    }
 
-	public String getDescription() {
-		return description;
-	}
+    public String getDescription() {
+        return description;
+    }
 
-	public BigDecimal getSpendingLimit() {
-		return spendingLimit;
-	}
+    public BigDecimal getSpendingLimit() {
+        return spendingLimit;
+    }
 }

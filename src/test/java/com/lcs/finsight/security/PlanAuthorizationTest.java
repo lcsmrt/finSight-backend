@@ -29,8 +29,6 @@ class PlanAuthorizationTest {
         return user;
     }
 
-    // --- create transaction ------------------------------------------------
-
     @Test
     void createAllowedForOwner() {
         assertThatCode(() -> authorization.requireCanCreateTransaction(PlanRole.OWNER))
@@ -54,8 +52,6 @@ class PlanAuthorizationTest {
         assertThatThrownBy(() -> authorization.requireCanCreateTransaction(PlanRole.VIEWER))
                 .isInstanceOf(PlanExceptions.InsufficientPlanRoleException.class);
     }
-
-    // --- modify own transaction --------------------------------------------
 
     @Test
     void modifyOwnAllowedForOwner() {
@@ -81,8 +77,6 @@ class PlanAuthorizationTest {
                 .isInstanceOf(PlanExceptions.InsufficientPlanRoleException.class);
     }
 
-    // --- modify another member's transaction -------------------------------
-
     @Test
     void modifyOthersAllowedForOwner() {
         assertThatCode(() -> authorization.requireCanModifyTransaction(PlanRole.OWNER, alice, bob))
@@ -106,8 +100,6 @@ class PlanAuthorizationTest {
         assertThatThrownBy(() -> authorization.requireCanModifyTransaction(PlanRole.VIEWER, alice, bob))
                 .isInstanceOf(PlanExceptions.InsufficientPlanRoleException.class);
     }
-
-    // --- manage categories -------------------------------------------------
 
     @Test
     void manageCategoriesAllowedForOwner() {
@@ -133,8 +125,6 @@ class PlanAuthorizationTest {
                 .isInstanceOf(PlanExceptions.InsufficientPlanRoleException.class);
     }
 
-    // --- owner-only actions ------------------------------------------------
-
     @Test
     void ownerOnlyAllowedForOwner() {
         assertThatCode(() -> authorization.requireOwner(PlanRole.OWNER))
@@ -158,8 +148,6 @@ class PlanAuthorizationTest {
         assertThatThrownBy(() -> authorization.requireOwner(PlanRole.VIEWER))
                 .isInstanceOf(PlanExceptions.InsufficientPlanRoleException.class);
     }
-
-    // --- attribute to other members -----------------------------------------
 
     @Test
     void attributeToOthersAllowedForOwner() {

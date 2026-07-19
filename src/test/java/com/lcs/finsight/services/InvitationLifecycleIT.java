@@ -31,13 +31,14 @@ import org.springframework.test.web.servlet.MvcResult;
  *       by an already-a-member user is genuinely idempotent: 200 OK, no duplicate membership.
  *   <li>EMAIL invites are single-use: the first accept flips status to ACCEPTED, so a second
  *       accept attempt on the same token is rejected up-front by the token-loading guard with
- *       400 BAD_REQUEST ("This invitation has already been used") rather than silently
+ *       410 GONE ("This invitation has already been used") rather than silently
  *       succeeding. This is a real behavioral asymmetry in the codebase, not a test artifact.
  *   <li>Expiry (LINK-only; EMAIL invites never carry an expiresAt) is enforced lazily against
  *       {@code expiresAt} and mapped by {@link com.lcs.finsight.exceptions.GlobalExceptionHandler}
  *       to 410 GONE, matching the task's assumption.
- *   <li>Revoke is mapped to 400 BAD_REQUEST via {@code InvitationInvalidException} ("This
- *       invitation has been revoked."), not 403/410 as one might otherwise assume.
+ *   <li>Revoke is mapped to 410 GONE via {@code InvitationRevokedException} ("This
+ *       invitation has been revoked."): a consumed/withdrawn invitation is gone, alongside
+ *       expired and already-used.
  * </ul>
  */
 class InvitationLifecycleIT extends AbstractIntegrationTest {
@@ -48,8 +49,6 @@ class InvitationLifecycleIT extends AbstractIntegrationTest {
     @Autowired
     private PlanMembershipRepository planMembershipRepository;
 
-    // --- double-accept idempotency (LINK invites: genuinely idempotent, no error, no dup) ---
-
     @Test
     void acceptingALinkInvitationTwiceIsIdempotentAndDoesNotDuplicateMembership() throws Exception {
         User owner = fixtures.aUser();
@@ -58,22 +57,19 @@ class InvitationLifecycleIT extends AbstractIntegrationTest {
 
         String token = createInvitation(plan, owner, PlanRole.EDITOR, "LINK", null, null);
 
-        MvcResult first = acceptAs(token, invitee).andExpect(status().isOk()).andReturn();
+        MvcResult first = acceptAs(token, invitee).andExpect(status().isCreated()).andReturn();
         JsonNode firstBody = objectMapper.readTree(first.getResponse().getContentAsString());
         assertThat(firstBody.get("planId").asLong()).isEqualTo(plan.getId());
         assertThat(firstBody.get("role").asText()).isEqualTo("EDITOR");
-        assertThat(planMembershipRepository.findAllByPlan(plan)).hasSize(2); // owner + invitee
+        assertThat(planMembershipRepository.findAllByPlan(plan)).hasSize(2);
 
-        // Second accept of the same token by the same (now-member) user: no error, no duplicate.
         MvcResult second = acceptAs(token, invitee).andExpect(status().isOk()).andReturn();
         JsonNode secondBody = objectMapper.readTree(second.getResponse().getContentAsString());
         assertThat(secondBody.get("planId").asLong()).isEqualTo(plan.getId());
         assertThat(secondBody.get("role").asText()).isEqualTo("EDITOR");
 
-        assertThat(planMembershipRepository.findAllByPlan(plan)).hasSize(2); // still no duplicate row
+        assertThat(planMembershipRepository.findAllByPlan(plan)).hasSize(2);
     }
-
-    // --- EMAIL invites: real behavior is single-use, not idempotent, documented explicitly ---
 
     @Test
     void acceptingAnEmailInvitationTwiceRejectsTheSecondAttemptAsAlreadyUsed() throws Exception {
@@ -83,23 +79,18 @@ class InvitationLifecycleIT extends AbstractIntegrationTest {
 
         String token = createInvitation(plan, owner, PlanRole.VIEWER, "EMAIL", invitee.getEmail(), null);
 
-        acceptAs(token, invitee).andExpect(status().isOk());
+        acceptAs(token, invitee).andExpect(status().isCreated());
         assertThat(planMembershipRepository.findAllByPlan(plan)).hasSize(2);
 
-        // Real behavior: EMAIL invites flip to ACCEPTED on first use, so the token-loading
-        // guard rejects a repeat accept up front with 400, not a silent no-op 200.
         acceptAs(token, invitee)
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isGone())
                 .andExpect(result -> {
                     JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
                     assertThat(body.get("message").asText()).isEqualTo("This invitation has already been used.");
                 });
 
-        // No duplicate membership was created by the rejected second attempt.
         assertThat(planMembershipRepository.findAllByPlan(plan)).hasSize(2);
     }
-
-    // --- expiry: LINK-only, enforced lazily, mapped to 410 GONE ---
 
     @Test
     void acceptingAnExpiredLinkInvitationReturns410Gone() throws Exception {
@@ -117,13 +108,11 @@ class InvitationLifecycleIT extends AbstractIntegrationTest {
                     assertThat(body.get("message").asText()).isEqualTo("This invitation has expired.");
                 });
 
-        assertThat(planMembershipRepository.findAllByPlan(plan)).hasSize(1); // owner only, no membership created
+        assertThat(planMembershipRepository.findAllByPlan(plan)).hasSize(1);
     }
 
-    // --- revoke: owner-only action; subsequent accept attempts are rejected with 400 ---
-
     @Test
-    void acceptingARevokedInvitationIsRejectedWith400() throws Exception {
+    void acceptingARevokedInvitationIsRejectedWith410Gone() throws Exception {
         User owner = fixtures.aUser();
         Plan plan = fixtures.aPlan(owner);
         User invitee = fixtures.aUser();
@@ -142,19 +131,15 @@ class InvitationLifecycleIT extends AbstractIntegrationTest {
                         .with(testAuthHelper.asUser(owner)))
                 .andExpect(status().isNoContent());
 
-        // Real behavior: revoke is mapped to InvitationInvalidException -> 400 BAD_REQUEST,
-        // not 403 Forbidden or 410 Gone.
         acceptAs(token, invitee)
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isGone())
                 .andExpect(result -> {
                     JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
                     assertThat(body.get("message").asText()).isEqualTo("This invitation has been revoked.");
                 });
 
-        assertThat(planMembershipRepository.findAllByPlan(plan)).hasSize(1); // owner only, no membership created
+        assertThat(planMembershipRepository.findAllByPlan(plan)).hasSize(1);
     }
-
-    // --- helpers -----------------------------------------------------------------------------
 
     private String createInvitation(
             Plan plan, User owner, PlanRole role, String type, String email, LocalDateTime expiresAt)

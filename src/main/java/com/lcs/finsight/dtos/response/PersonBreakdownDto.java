@@ -5,14 +5,14 @@ import java.math.BigDecimal;
 public class PersonBreakdownDto {
     private final Long userId;
     private final String name;
-    private BigDecimal income;
-    private BigDecimal expense;
+    private final BigDecimal income;
+    private final BigDecimal expense;
 
-    public PersonBreakdownDto(Long userId, String name) {
+    public PersonBreakdownDto(Long userId, String name, BigDecimal income, BigDecimal expense) {
         this.userId = userId;
         this.name = name;
-        this.income = BigDecimal.ZERO;
-        this.expense = BigDecimal.ZERO;
+        this.income = income;
+        this.expense = expense;
     }
 
     public Long getUserId() { return userId; }
@@ -20,6 +20,4 @@ public class PersonBreakdownDto {
     public BigDecimal getIncome() { return income; }
     public BigDecimal getExpense() { return expense; }
     public BigDecimal getNet() { return income.subtract(expense); }
-    public void setIncome(BigDecimal income) { this.income = income; }
-    public void setExpense(BigDecimal expense) { this.expense = expense; }
 }

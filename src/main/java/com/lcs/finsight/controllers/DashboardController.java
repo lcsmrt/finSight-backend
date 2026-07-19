@@ -1,7 +1,7 @@
 package com.lcs.finsight.controllers;
 
 import com.lcs.finsight.dtos.request.DashboardFilterDto;
-import com.lcs.finsight.dtos.response.DashboardSummaryDto;
+import com.lcs.finsight.dtos.response.DashboardSummaryResponseDto;
 import com.lcs.finsight.security.PlanContext;
 import com.lcs.finsight.services.DashboardService;
 import com.lcs.finsight.utils.ApiRoutes;
@@ -25,7 +25,7 @@ public class DashboardController {
 
     @Operation(summary = "Returns the financial summary for the plan")
     @GetMapping
-    public ResponseEntity<DashboardSummaryDto> getSummary(
+    public ResponseEntity<DashboardSummaryResponseDto> getSummary(
             @ParameterObject @ModelAttribute @Valid DashboardFilterDto filter,
             PlanContext ctx) {
         return ResponseEntity.ok(dashboardService.getSummary(ctx, filter.getStartDate(), filter.getEndDate(), filter.getMemberId()));

@@ -31,9 +31,7 @@ import org.springframework.test.web.servlet.MvcResult;
  * child rows (participants/items) not present in the new request rather than merging them in.
  *
  * <p>Also exercises the validation guards that are actually implemented in
- * {@link com.lcs.finsight.services.FinancialTransactionService} and its DTOs — not every guard
- * one might expect exists; see the {@code negativeTransactionAmount...} test below for a
- * documented gap discovered while writing this suite.
+ * {@link com.lcs.finsight.services.FinancialTransactionService} and its DTOs.
  */
 class TransactionCrudIT extends AbstractIntegrationTest {
 
@@ -54,8 +52,6 @@ class TransactionCrudIT extends AbstractIntegrationTest {
         assertThat(created.get("items")).hasSize(2);
         long transactionId = created.get("id").asLong();
 
-        // Full-replace PUT: only one item this time, and it's a brand-new one, not a subset of
-        // the original two.
         mockMvc.perform(put(ApiRoutes.FINANCIAL_TRANSACTION + "/{id}", plan.getId(), transactionId)
                         .with(testAuthHelper.asUser(owner))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -66,8 +62,6 @@ class TransactionCrudIT extends AbstractIntegrationTest {
 
         JsonNode persisted = fetchTransaction(plan, owner, transactionId);
 
-        // Exactly one item survives — the two originals were fully discarded, not merged with
-        // the new one (which would leave 3).
         assertThat(persisted.get("items")).hasSize(1);
         assertThat(persisted.get("items").get(0).get("description").asText()).isEqualTo("Item C");
         assertThat(persisted.get("items").get(0).get("amount").decimalValue())
@@ -91,7 +85,6 @@ class TransactionCrudIT extends AbstractIntegrationTest {
         assertThat(created.get("participants")).hasSize(2);
         long transactionId = created.get("id").asLong();
 
-        // Full-replace PUT: drop the member, keep only the owner as participant.
         mockMvc.perform(put(ApiRoutes.FINANCIAL_TRANSACTION + "/{id}", plan.getId(), transactionId)
                         .with(testAuthHelper.asUser(owner))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -116,8 +109,8 @@ class TransactionCrudIT extends AbstractIntegrationTest {
         long transactionId = created.get("id").asLong();
 
         // Single item worth more than the transaction's own amount: FinancialTransactionService
-        // .applyItems throws IllegalArgumentException("Items total cannot exceed the transaction
-        // amount."), mapped to 400 by GlobalExceptionHandler's IllegalArgumentException handler.
+        // .applyItems throws FinancialTransactionExceptions.ItemsTotalExceedsAmountException,
+        // mapped to 400 by GlobalExceptionHandler.
         mockMvc.perform(put(ApiRoutes.FINANCIAL_TRANSACTION + "/{id}", plan.getId(), transactionId)
                         .with(testAuthHelper.asUser(owner))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -126,7 +119,6 @@ class TransactionCrudIT extends AbstractIntegrationTest {
                                 List.of(Map.of("description", "Too much", "amount", new BigDecimal("150.00"))))))
                 .andExpect(status().isBadRequest());
 
-        // The rejected update must not have mutated the persisted transaction.
         JsonNode persisted = fetchTransaction(plan, owner, transactionId);
         assertThat(persisted.get("items")).isEmpty();
     }
@@ -158,7 +150,7 @@ class TransactionCrudIT extends AbstractIntegrationTest {
                 "DEBIT", "100.00", "Groceries", owner, List.of()));
         long transactionId = created.get("id").asLong();
 
-        // ItemInputDto.amount carries @Positive: a negative item amount fails bean validation.
+        // ItemDto.amount carries @Positive: a negative item amount fails bean validation.
         // (FinancialTransactionService.applyItems also redundantly re-checks this server-side.)
         mockMvc.perform(put(ApiRoutes.FINANCIAL_TRANSACTION + "/{id}", plan.getId(), transactionId)
                         .with(testAuthHelper.asUser(owner))
@@ -170,13 +162,7 @@ class TransactionCrudIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void negativeTransactionAmountIsCurrentlyAcceptedNotRejected() throws Exception {
-        // DISCOVERED GAP: unlike ItemInputDto.amount (which carries @Positive), the top-level
-        // FinancialTransactionRequestDto.amount only carries @NotNull -- no @Positive, and
-        // FinancialTransactionService.create/update never checks it against zero either. A
-        // negative transaction amount is therefore accepted end-to-end today, as this test
-        // documents (not a call to weaken the assertion -- this is the real, current behavior).
-        // Flagged as a candidate follow-up fix, not fixed here per task scope.
+    void putWithNegativeTransactionAmountIsRejected() throws Exception {
         User owner = fixtures.aUser();
         Plan plan = fixtures.aPlan(owner);
 
@@ -184,14 +170,16 @@ class TransactionCrudIT extends AbstractIntegrationTest {
                 "DEBIT", "100.00", "Groceries", owner, List.of()));
         long transactionId = created.get("id").asLong();
 
+        // FinancialTransactionRequestDto.amount carries @Positive: a negative (or zero) top-level
+        // amount fails bean validation before the service is invoked, same as ItemDto.amount.
         mockMvc.perform(put(ApiRoutes.FINANCIAL_TRANSACTION + "/{id}", plan.getId(), transactionId)
                         .with(testAuthHelper.asUser(owner))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody("DEBIT", "-50.00", "Groceries", owner, List.of())))
-                .andExpect(status().isOk());
+                .andExpect(status().isBadRequest());
 
         JsonNode persisted = fetchTransaction(plan, owner, transactionId);
-        assertThat(persisted.get("amount").decimalValue()).isEqualByComparingTo("-50.00");
+        assertThat(persisted.get("amount").decimalValue()).isEqualByComparingTo("100.00");
     }
 
     @Test
@@ -255,8 +243,6 @@ class TransactionCrudIT extends AbstractIntegrationTest {
                                 "items", List.of()))))
                 .andExpect(status().isNotFound());
     }
-
-    // --- helpers ------------------------------------------------------------------------------
 
     private JsonNode createTransaction(Plan plan, User asUser, String body) throws Exception {
         MvcResult result = mockMvc.perform(post(ApiRoutes.FINANCIAL_TRANSACTION, plan.getId())

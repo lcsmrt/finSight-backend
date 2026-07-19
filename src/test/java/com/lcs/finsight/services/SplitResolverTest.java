@@ -1,5 +1,6 @@
 package com.lcs.finsight.services;
 
+import com.lcs.finsight.exceptions.FinancialTransactionExceptions;
 import com.lcs.finsight.models.SplitMode;
 import com.lcs.finsight.services.SplitResolver.ParticipantInput;
 import com.lcs.finsight.services.SplitResolver.ResolvedShare;
@@ -71,7 +72,7 @@ class SplitResolverTest {
                 new ParticipantInput(2L, new BigDecimal("20.00")));
 
         assertThatThrownBy(() -> resolver.resolve(new BigDecimal("100.00"), SplitMode.EXACT, inputs))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(FinancialTransactionExceptions.ParticipantSharesMismatchException.class);
     }
 
     @Test

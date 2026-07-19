@@ -28,7 +28,6 @@ public class PlanAuthorization {
     public void requireCanModifyTransaction(PlanRole role, User rowOwner, User actor) {
         switch (role) {
             case OWNER, EDITOR -> {
-                // allowed
             }
             case CONTRIBUTOR -> {
                 if (rowOwner == null || actor == null

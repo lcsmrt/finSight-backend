@@ -118,7 +118,7 @@ class SeriesRegeneratorTest {
         LocalDate start = LocalDate.of(2026, 1, 15);
         RecurrenceDefinition def = installmentDef("New Rent", amount, 1, 6, start);
         List<FinancialTransaction> existing = existingInstallments("Rent", amount, 6, start);
-        LocalDate pivotDate = existing.get(2).getStartDate(); // parcel 3
+        LocalDate pivotDate = existing.get(2).getStartDate();
 
         SeriesRegenerator.SeriesEditResult result = regenerator.reconcile(
                 def, existing, shares, SeriesEditScope.THIS_AND_FOLLOWING, pivotDate);
@@ -128,7 +128,6 @@ class SeriesRegeneratorTest {
         assertThat(result.toUpdate()).hasSize(4);
         assertThat(result.toUpdate()).extracting(FinancialTransaction::getDescription)
                 .containsExactly("New Rent (3/6)", "New Rent (4/6)", "New Rent (5/6)", "New Rent (6/6)");
-        // parcels 1-2 must not appear anywhere in the result
         assertThat(result.toUpdate()).doesNotContain(existing.get(0), existing.get(1));
     }
 

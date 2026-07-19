@@ -4,7 +4,6 @@ import com.lcs.finsight.dtos.request.LoginRequestDto;
 import com.lcs.finsight.dtos.response.AuthenticationResponseDto;
 import com.lcs.finsight.dtos.response.UserResponseDto;
 import com.lcs.finsight.models.User;
-import com.lcs.finsight.repositories.UserRepository;
 import com.lcs.finsight.services.AuthenticationService;
 import com.lcs.finsight.services.UserService;
 import com.lcs.finsight.utils.ApiRoutes;
@@ -24,7 +23,7 @@ public class AuthenticationController {
     private final AuthenticationService authenticationService;
     private final UserService userService;
 
-    public AuthenticationController(AuthenticationService authenticationService, UserRepository userRepository, UserService userService) {
+    public AuthenticationController(AuthenticationService authenticationService, UserService userService) {
         this.authenticationService = authenticationService;
         this.userService = userService;
     }

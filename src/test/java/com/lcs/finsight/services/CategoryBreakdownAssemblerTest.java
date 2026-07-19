@@ -16,8 +16,6 @@ class CategoryBreakdownAssemblerTest {
 
     @Test
     void workedExampleSplitsGroceryTransactionAcrossItemCategories() {
-        // Grocery transaction, amount=150, parent category=Groceries (id=1).
-        // Two categorized items: Food 90 (id=2), Cleaning 40 (id=3). Remainder 20 stays with Groceries.
         List<Object[]> rowsA = List.<Object[]>of(
                 new Object[]{1L, "Groceries", new BigDecimal("150"), new BigDecimal("500")});
         List<Object[]> rowsB = List.<Object[]>of(
@@ -32,14 +30,12 @@ class CategoryBreakdownAssemblerTest {
         assertThat(byName(result, "Groceries").getSpent()).isEqualByComparingTo("20");
         assertThat(byName(result, "Food").getSpent()).isEqualByComparingTo("90");
         assertThat(byName(result, "Cleaning").getSpent()).isEqualByComparingTo("40");
-        // sorted by spent descending
         assertThat(result).extracting(CategoryBreakdownDto::getCategoryName)
                 .containsExactly("Food", "Cleaning", "Groceries");
     }
 
     @Test
     void nonItemizedTransactionSpendEqualsRawAmount() {
-        // A transaction with no items at all: no rowsB/rowsI entries for its category.
         List<Object[]> rowsA = List.<Object[]>of(
                 new Object[]{10L, "Utilities", new BigDecimal("75"), null});
 
@@ -53,8 +49,6 @@ class CategoryBreakdownAssemblerTest {
 
     @Test
     void categoryPresentOnlyViaItemsStillAppearsWithItsItemSum() {
-        // "Subscriptions" (id=5) never appears as a transaction's own parent category,
-        // only ever shows up via categorized items.
         List<Object[]> rowsI = List.<Object[]>of(
                 new Object[]{5L, "Subscriptions", new BigDecimal("100"), new BigDecimal("25")});
 
@@ -69,8 +63,6 @@ class CategoryBreakdownAssemblerTest {
 
     @Test
     void fullyItemizedTransactionLeavesParentCategoryNetZero() {
-        // Entertainment transaction (id=6), amount=200, fully itemized: Movies (id=7) 120 + Snacks (id=8) 80.
-        // Sum of items equals the transaction amount exactly, so no remainder is left for Entertainment.
         List<Object[]> rowsA = List.<Object[]>of(
                 new Object[]{6L, "Entertainment", new BigDecimal("200"), null});
         List<Object[]> rowsB = List.<Object[]>of(
@@ -89,9 +81,6 @@ class CategoryBreakdownAssemblerTest {
 
     @Test
     void multipleItemRowsForSameCategoryAreSummedNotOverwritten() {
-        // Two items land in the same "Fuel" category (id=11), represented as two separate
-        // rowsI entries (e.g. from two different transactions). The assembler must sum them,
-        // not let the second row silently overwrite the first.
         List<Object[]> rowsI = List.<Object[]>of(
                 new Object[]{11L, "Fuel", null, new BigDecimal("30")},
                 new Object[]{11L, "Fuel", null, new BigDecimal("45")});
@@ -109,13 +98,11 @@ class CategoryBreakdownAssemblerTest {
         emergencyFund.setDescription("Emergency Fund");
         emergencyFund.setSpendingLimit(new BigDecimal("1000"));
 
-        // Must NOT be backfilled: no spending limit set.
         FinancialTransactionCategory noLimit = new FinancialTransactionCategory();
         noLimit.setType(FinancialTransactionType.DEBIT);
         noLimit.setDescription("No Limit Category");
         noLimit.setSpendingLimit(null);
 
-        // Must NOT be backfilled: CREDIT type, not an expense category.
         FinancialTransactionCategory income = new FinancialTransactionCategory();
         income.setType(FinancialTransactionType.CREDIT);
         income.setDescription("Salary");

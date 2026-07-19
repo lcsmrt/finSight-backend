@@ -10,7 +10,6 @@ import com.lcs.finsight.models.SplitMode;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class RecurrenceDefinitionResponseDto {
     private final Long id;
@@ -44,7 +43,7 @@ public class RecurrenceDefinitionResponseDto {
         this.splitMode = def.getSplitMode();
         this.participants = def.getParticipants().stream()
                 .map(ParticipantTemplateDto::new)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public static class ParticipantTemplateDto {

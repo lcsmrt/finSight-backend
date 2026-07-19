@@ -3,8 +3,8 @@ package com.lcs.finsight.services;
 import com.lcs.finsight.dtos.request.FinancialTransactionFilterDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionRequestDto;
 import com.lcs.finsight.dtos.request.FinancialTransactionSeriesRequestDto;
-import com.lcs.finsight.dtos.request.ItemInputDto;
-import com.lcs.finsight.dtos.request.ParticipantInputDto;
+import com.lcs.finsight.dtos.request.ItemDto;
+import com.lcs.finsight.dtos.request.ParticipantDto;
 import com.lcs.finsight.dtos.request.SeriesEditRequestDto;
 import com.lcs.finsight.dtos.response.FinancialTransactionSeriesResponseDto;
 import com.lcs.finsight.dtos.response.RecurrenceDefinitionResponseDto;
@@ -95,14 +95,8 @@ public class FinancialTransactionService {
 
     @Transactional(readOnly = true)
     public FinancialTransaction findById(Long id, PlanContext ctx) {
-        FinancialTransaction transaction = financialTransactionRepository.findById(id)
+        return financialTransactionRepository.findByIdAndPlan(id, ctx.getPlan())
                 .orElseThrow(() -> new FinancialTransactionExceptions.FinancialTransactionNotFoundException(id));
-
-        if (!transaction.getPlan().getId().equals(ctx.getPlan().getId())) {
-            throw new FinancialTransactionExceptions.FinancialTransactionNotFoundException(id);
-        }
-
-        return transaction;
     }
 
     private static final String SORT_CATEGORY = "category";
@@ -162,7 +156,7 @@ public class FinancialTransactionService {
                 : null;
 
         if (category != null && category.getType() != dto.getType()) {
-            throw new IllegalArgumentException("Category does not match the transaction type.");
+            throw new FinancialTransactionExceptions.CategoryTypeMismatchException();
         }
 
         financialTransaction.setPlan(ctx.getPlan());
@@ -194,7 +188,7 @@ public class FinancialTransactionService {
                 : null;
 
         if (category != null && category.getType() != dto.getType()) {
-            throw new IllegalArgumentException("Category does not match the transaction type.");
+            throw new FinancialTransactionExceptions.CategoryTypeMismatchException();
         }
 
         existingTransaction.setCategory(category);
@@ -215,7 +209,7 @@ public class FinancialTransactionService {
     private record ResolvedParticipants(SplitMode splitMode, List<ResolvedParticipant> shares) {}
 
     private ResolvedParticipants resolveParticipants(
-            List<ParticipantInputDto> participantInputs, SplitMode requestedSplitMode, BigDecimal amount, PlanContext ctx) {
+            List<ParticipantDto> participantInputs, SplitMode requestedSplitMode, BigDecimal amount, PlanContext ctx) {
         if (participantInputs == null || participantInputs.isEmpty()) {
             return new ResolvedParticipants(SplitMode.EQUAL, List.of(new ResolvedParticipant(ctx.getUser(), amount)));
         }
@@ -223,7 +217,7 @@ public class FinancialTransactionService {
         Set<Long> seenMemberIds = new HashSet<>();
         Map<Long, User> membersById = new LinkedHashMap<>();
         List<SplitResolver.ParticipantInput> resolverInputs = new ArrayList<>();
-        for (ParticipantInputDto input : participantInputs) {
+        for (ParticipantDto input : participantInputs) {
             if (!seenMemberIds.add(input.getMemberId())) {
                 throw new IllegalArgumentException("Duplicate participant in transaction.");
             }
@@ -253,7 +247,7 @@ public class FinancialTransactionService {
     }
 
     private void applyParticipants(
-            FinancialTransaction transaction, List<ParticipantInputDto> participantInputs,
+            FinancialTransaction transaction, List<ParticipantDto> participantInputs,
             SplitMode requestedSplitMode, BigDecimal amount, PlanContext ctx) {
         ResolvedParticipants resolved = resolveParticipants(participantInputs, requestedSplitMode, amount, ctx);
         requireAttributionAuthorizedIfNeeded(resolved, ctx);
@@ -284,7 +278,7 @@ public class FinancialTransactionService {
                 participant -> !keptMemberIds.contains(participant.getMember().getId()));
     }
 
-    private void applyItems(FinancialTransaction transaction, List<ItemInputDto> itemInputs, PlanContext ctx) {
+    private void applyItems(FinancialTransaction transaction, List<ItemDto> itemInputs, PlanContext ctx) {
         if (itemInputs == null || itemInputs.isEmpty()) {
             transaction.getItems().clear();
             return;
@@ -292,7 +286,7 @@ public class FinancialTransactionService {
 
         List<TransactionItem> resolvedItems = new ArrayList<>();
         BigDecimal itemsTotal = BigDecimal.ZERO;
-        for (ItemInputDto input : itemInputs) {
+        for (ItemDto input : itemInputs) {
             if (input.getDescription() == null || input.getDescription().isBlank()) {
                 throw new IllegalArgumentException("Item description cannot be blank.");
             }
@@ -305,7 +299,7 @@ public class FinancialTransactionService {
                     : null;
 
             if (itemCategory != null && itemCategory.getType() != transaction.getType()) {
-                throw new IllegalArgumentException("Item category does not match the transaction type.");
+                throw new FinancialTransactionExceptions.ItemCategoryTypeMismatchException();
             }
 
             TransactionItem item = new TransactionItem();
@@ -320,7 +314,7 @@ public class FinancialTransactionService {
         }
 
         if (itemsTotal.compareTo(transaction.getAmount()) > 0) {
-            throw new IllegalArgumentException("Items total cannot exceed the transaction amount.");
+            throw new FinancialTransactionExceptions.ItemsTotalExceedsAmountException();
         }
 
         transaction.getItems().clear();
@@ -361,7 +355,7 @@ public class FinancialTransactionService {
                 : null;
 
         if (category != null && category.getType() != dto.getType()) {
-            throw new IllegalArgumentException("Category does not match the transaction type.");
+            throw new FinancialTransactionExceptions.CategoryTypeMismatchException();
         }
 
         ResolvedParticipants resolvedParticipants = resolveParticipants(dto.getParticipants(), dto.getSplitMode(), dto.getAmount(), ctx);
@@ -510,7 +504,7 @@ public class FinancialTransactionService {
                 : null;
 
         if (category != null && category.getType() != dto.getType()) {
-            throw new IllegalArgumentException("Category does not match the transaction type.");
+            throw new FinancialTransactionExceptions.CategoryTypeMismatchException();
         }
 
         if (dto.getParcelsNumber() != null

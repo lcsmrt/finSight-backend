@@ -62,7 +62,6 @@ class CsvImportIT extends AbstractIntegrationTest {
                 .extracting(FinancialTransaction::getExternalId)
                 .containsExactlyInAnyOrder("nu-ext-1", "nu-ext-2", "nu-ext-3");
 
-        // Re-import the exact same file: every externalId already exists, so nothing new is created.
         JsonNode secondImport = importCsv(plan, owner, CSV);
         assertThat(secondImport.get("imported").asInt()).isEqualTo(0);
 
@@ -72,7 +71,6 @@ class CsvImportIT extends AbstractIntegrationTest {
                 .extracting(FinancialTransaction::getExternalId)
                 .containsExactlyInAnyOrder("nu-ext-1", "nu-ext-2", "nu-ext-3");
 
-        // Also verified through the real read API: the transaction list still reports 3 rows total.
         MvcResult listResult = mockMvc.perform(get(ApiRoutes.FINANCIAL_TRANSACTION, plan.getId())
                         .with(testAuthHelper.asUser(owner)))
                 .andExpect(status().isOk())
@@ -91,7 +89,6 @@ class CsvImportIT extends AbstractIntegrationTest {
         String csvWithOneNewRow = CSV + "18/07/2026,-15.00,nu-ext-4,Pharmacy\n";
         JsonNode secondImport = importCsv(plan, owner, csvWithOneNewRow);
 
-        // Only the brand-new externalId is imported; the other three are skipped as duplicates.
         assertThat(secondImport.get("imported").asInt()).isEqualTo(1);
 
         List<FinancialTransaction> persisted = financialTransactionRepository.findAllByPlan(plan);

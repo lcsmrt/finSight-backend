@@ -8,8 +8,11 @@ import org.springframework.stereotype.Repository;
 import com.lcs.finsight.models.FinancialTransactionCategory;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface FinancialTransactionCategoryRepository extends JpaRepository<FinancialTransactionCategory, Long>, JpaSpecificationExecutor<FinancialTransactionCategory> {
     List<FinancialTransactionCategory> findAllByPlan(Plan plan);
+
+    Optional<FinancialTransactionCategory> findByIdAndPlan(Long id, Plan plan);
 }

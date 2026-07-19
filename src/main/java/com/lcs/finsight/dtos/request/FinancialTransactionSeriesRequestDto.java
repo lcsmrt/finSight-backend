@@ -51,7 +51,7 @@ public class FinancialTransactionSeriesRequestDto {
     private SplitMode splitMode;
 
     @Valid
-    private List<ParticipantInputDto> participants;
+    private List<ParticipantDto> participants;
 
     public FinancialTransactionType getType() {
         return type;
@@ -97,7 +97,7 @@ public class FinancialTransactionSeriesRequestDto {
         return splitMode;
     }
 
-    public List<ParticipantInputDto> getParticipants() {
+    public List<ParticipantDto> getParticipants() {
         return participants;
     }
 }

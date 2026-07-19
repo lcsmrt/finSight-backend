@@ -1,7 +1,7 @@
 package com.lcs.finsight.services;
 
 import com.lcs.finsight.dtos.response.CategoryBreakdownDto;
-import com.lcs.finsight.dtos.response.DashboardSummaryDto;
+import com.lcs.finsight.dtos.response.DashboardSummaryResponseDto;
 import com.lcs.finsight.dtos.response.MonthlyTrendDto;
 import com.lcs.finsight.dtos.response.PersonBreakdownDto;
 import com.lcs.finsight.models.FinancialTransactionCategory;
@@ -36,7 +36,7 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardSummaryDto getSummary(PlanContext ctx, LocalDate startDate, LocalDate endDate, Long memberId) {
+    public DashboardSummaryResponseDto getSummary(PlanContext ctx, LocalDate startDate, LocalDate endDate, Long memberId) {
         Plan plan = ctx.getPlan();
 
         BigDecimal totalIncome = financialTransactionRepository.sumByPlanAndTypeAndDateRange(
@@ -51,7 +51,7 @@ public class DashboardService {
         List<MonthlyTrendDto> monthlyTrend = buildMonthlyTrend(plan, startDate, endDate, memberId);
         List<PersonBreakdownDto> personBreakdown = buildPersonBreakdown(plan, startDate, endDate, memberId);
 
-        return new DashboardSummaryDto(totalIncome, totalExpenses, netBalance, categoryBreakdown, monthlyTrend, personBreakdown);
+        return new DashboardSummaryResponseDto(totalIncome, totalExpenses, netBalance, categoryBreakdown, monthlyTrend, personBreakdown);
     }
 
     private List<CategoryBreakdownDto> buildCategoryBreakdown(Plan plan, LocalDate startDate, LocalDate endDate, Long memberId) {
@@ -70,46 +70,62 @@ public class DashboardService {
         return categoryBreakdownAssembler.assemble(rowsA, rowsB, rowsI, limitCategories);
     }
 
+    private record MonthKey(int year, int month) {}
+
     private List<MonthlyTrendDto> buildMonthlyTrend(Plan plan, LocalDate startDate, LocalDate endDate, Long memberId) {
         List<Object[]> rows = financialTransactionRepository.findMonthlyTrend(plan, startDate, endDate, memberId);
 
-        Map<String, MonthlyTrendDto> trendMap = new LinkedHashMap<>();
+        Map<MonthKey, BigDecimal[]> amountsByMonth = new LinkedHashMap<>();
         for (Object[] row : rows) {
             int year = ((Number) row[0]).intValue();
             int month = ((Number) row[1]).intValue();
             FinancialTransactionType type = (FinancialTransactionType) row[2];
             BigDecimal amount = (BigDecimal) row[3];
 
-            String key = year + "-" + month;
-            trendMap.computeIfAbsent(key, k -> new MonthlyTrendDto(year, month));
-
-            MonthlyTrendDto trend = trendMap.get(key);
+            BigDecimal[] incomeAndExpenses = amountsByMonth.computeIfAbsent(
+                    new MonthKey(year, month), k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
             if (type == FinancialTransactionType.CREDIT) {
-                trend.setIncome(amount);
+                incomeAndExpenses[0] = amount;
             } else {
-                trend.setExpenses(amount);
+                incomeAndExpenses[1] = amount;
             }
         }
-        return new ArrayList<>(trendMap.values());
+
+        List<MonthlyTrendDto> trend = new ArrayList<>();
+        for (Map.Entry<MonthKey, BigDecimal[]> entry : amountsByMonth.entrySet()) {
+            trend.add(new MonthlyTrendDto(entry.getKey().year(), entry.getKey().month(),
+                    entry.getValue()[0], entry.getValue()[1]));
+        }
+        return trend;
     }
 
     private List<PersonBreakdownDto> buildPersonBreakdown(Plan plan, LocalDate startDate, LocalDate endDate, Long memberId) {
         List<Object[]> rows = financialTransactionRepository.findPersonBreakdown(plan, startDate, endDate, memberId);
 
-        Map<Long, PersonBreakdownDto> personMap = new LinkedHashMap<>();
+        Map<Long, String> namesByUserId = new LinkedHashMap<>();
+        Map<Long, BigDecimal[]> amountsByUserId = new LinkedHashMap<>();
         for (Object[] row : rows) {
             Long userId = ((Number) row[0]).longValue();
             String name = (String) row[1];
             FinancialTransactionType type = (FinancialTransactionType) row[2];
             BigDecimal amount = (BigDecimal) row[3];
 
-            PersonBreakdownDto person = personMap.computeIfAbsent(userId, k -> new PersonBreakdownDto(userId, name));
+            namesByUserId.putIfAbsent(userId, name);
+            BigDecimal[] incomeAndExpense = amountsByUserId.computeIfAbsent(
+                    userId, k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
             if (type == FinancialTransactionType.CREDIT) {
-                person.setIncome(amount);
+                incomeAndExpense[0] = amount;
             } else {
-                person.setExpense(amount);
+                incomeAndExpense[1] = amount;
             }
         }
-        return new ArrayList<>(personMap.values());
+
+        List<PersonBreakdownDto> breakdown = new ArrayList<>();
+        for (Map.Entry<Long, BigDecimal[]> entry : amountsByUserId.entrySet()) {
+            Long userId = entry.getKey();
+            breakdown.add(new PersonBreakdownDto(userId, namesByUserId.get(userId),
+                    entry.getValue()[0], entry.getValue()[1]));
+        }
+        return breakdown;
     }
 }

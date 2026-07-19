@@ -14,6 +14,12 @@ public class PlanExceptions {
         }
     }
 
+    public static class MemberNotFoundException extends RuntimeException {
+        public MemberNotFoundException(Long planId, Long userId) {
+            super("User " + userId + " is not a member of plan " + planId + ".");
+        }
+    }
+
     public static class InsufficientPlanRoleException extends RuntimeException {
         public InsufficientPlanRoleException(String message) {
             super(message);
@@ -44,9 +50,21 @@ public class PlanExceptions {
         }
     }
 
-    public static class InvitationInvalidException extends RuntimeException {
-        public InvitationInvalidException(String message) {
-            super(message);
+    public static class InvitationEmailMismatchException extends RuntimeException {
+        public InvitationEmailMismatchException() {
+            super("This invitation is bound to a different email address.");
+        }
+    }
+
+    public static class InvitationRevokedException extends RuntimeException {
+        public InvitationRevokedException() {
+            super("This invitation has been revoked.");
+        }
+    }
+
+    public static class InvitationAlreadyUsedException extends RuntimeException {
+        public InvitationAlreadyUsedException() {
+            super("This invitation has already been used.");
         }
     }
 

@@ -8,8 +8,8 @@ public class UserExceptions {
         }
     }
 
-    public static class EmailAlreadyUsedException extends RuntimeException {
-        public EmailAlreadyUsedException(String email) {
+    public static class EmailAlreadyExistsException extends RuntimeException {
+        public EmailAlreadyExistsException(String email) {
             super("Email " + email + " is already in use.");
         }
     }

@@ -2,10 +2,9 @@ package com.lcs.finsight.controllers;
 
 import com.lcs.finsight.dtos.request.InvitationRequestDto;
 import com.lcs.finsight.dtos.response.AcceptInvitationResponseDto;
-import com.lcs.finsight.dtos.response.InvitationPreviewDto;
+import com.lcs.finsight.dtos.response.InvitationPreviewResponseDto;
 import com.lcs.finsight.dtos.response.InvitationResponseDto;
 import com.lcs.finsight.models.PlanInvitation;
-import com.lcs.finsight.models.PlanMembership;
 import com.lcs.finsight.models.User;
 import com.lcs.finsight.security.PlanContext;
 import com.lcs.finsight.services.PlanInvitationService;
@@ -62,8 +61,8 @@ public class PlanInvitationController {
 
     @Operation(summary = "Previews an invitation by token before accepting")
     @GetMapping(ApiRoutes.INVITATION + "/{token}")
-    public ResponseEntity<InvitationPreviewDto> previewInvitation(@PathVariable String token) {
-        return ResponseEntity.ok(new InvitationPreviewDto(invitationService.preview(token)));
+    public ResponseEntity<InvitationPreviewResponseDto> previewInvitation(@PathVariable String token) {
+        return ResponseEntity.ok(new InvitationPreviewResponseDto(invitationService.preview(token)));
     }
 
     @Operation(summary = "Accepts an invitation by token for the authenticated user")
@@ -72,7 +71,8 @@ public class PlanInvitationController {
             @PathVariable String token,
             @AuthenticationPrincipal UserDetails userDetails) {
         User actor = userService.findByEmail(userDetails.getUsername());
-        PlanMembership membership = invitationService.accept(token, actor);
-        return ResponseEntity.ok(new AcceptInvitationResponseDto(membership));
+        PlanInvitationService.AcceptResult result = invitationService.accept(token, actor);
+        HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(new AcceptInvitationResponseDto(result.membership()));
     }
 }

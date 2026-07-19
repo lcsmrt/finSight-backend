@@ -13,12 +13,15 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Repository
 public interface FinancialTransactionRepository extends JpaRepository<FinancialTransaction, Long>, JpaSpecificationExecutor<FinancialTransaction> {
 
     List<FinancialTransaction> findAllByPlan(Plan plan);
+
+    Optional<FinancialTransaction> findByIdAndPlan(Long id, Plan plan);
 
     List<FinancialTransaction> findAllByPlanAndSeriesId(Plan plan, String seriesId);
 

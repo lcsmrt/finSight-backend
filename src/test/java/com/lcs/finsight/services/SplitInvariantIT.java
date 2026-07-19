@@ -60,8 +60,6 @@ class SplitInvariantIT extends AbstractIntegrationTest {
         assertThat(created.get("participants")).hasSize(2);
         assertThat(sumParticipantShares(created)).isEqualByComparingTo("100.00");
 
-        // Independent round trip: re-fetch by ID to confirm the shares were actually
-        // persisted (not just echoed back from the in-memory create response).
         long transactionId = created.get("id").asLong();
         MvcResult getResult = mockMvc.perform(get(ApiRoutes.FINANCIAL_TRANSACTION + "/{id}", plan.getId(), transactionId)
                         .with(testAuthHelper.asUser(owner)))
@@ -82,13 +80,11 @@ class SplitInvariantIT extends AbstractIntegrationTest {
         User member = fixtures.aUser();
         fixtures.addMember(plan, member, PlanRole.EDITOR);
 
-        // A plain, single-participant (non-split) transaction.
         fixtures.aTransaction(plan, owner, new BigDecimal("100.00"), FinancialTransactionType.DEBIT);
 
         BigDecimal totalExpensesAfterNonSplit = fetchDashboard(plan, owner, null).get("totalExpenses").decimalValue();
         assertThat(totalExpensesAfterNonSplit).isEqualByComparingTo("100.00");
 
-        // A split transaction of a different amount, shared between two members.
         String requestBody = splitTransactionRequestBody("150.00", owner, member);
 
         mockMvc.perform(post(ApiRoutes.FINANCIAL_TRANSACTION, plan.getId())
@@ -99,8 +95,6 @@ class SplitInvariantIT extends AbstractIntegrationTest {
 
         BigDecimal totalExpensesAfterSplitAdded = fetchDashboard(plan, owner, null).get("totalExpenses").decimalValue();
 
-        // The split transaction contributes exactly its full amount to the unfiltered
-        // total, same as a non-split transaction of that amount would.
         assertThat(totalExpensesAfterSplitAdded)
                 .isEqualByComparingTo(totalExpensesAfterNonSplit.add(new BigDecimal("150.00")));
         assertThat(totalExpensesAfterSplitAdded).isEqualByComparingTo("250.00");

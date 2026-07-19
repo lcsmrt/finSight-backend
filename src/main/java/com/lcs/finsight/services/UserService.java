@@ -28,12 +28,6 @@ public class UserService {
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
 
     @Transactional(readOnly = true)
-    public User findById(Long id) {
-        return userRepository.findById(id)
-                .orElseThrow(() -> new UserExceptions.UserNotFoundException(id));
-    }
-
-    @Transactional(readOnly = true)
     public User findByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserExceptions.UsernameNotFoundException(email));
@@ -43,7 +37,7 @@ public class UserService {
     public User create(UserRequestDto dto) {
         Optional<User> existingUser = userRepository.findByEmail(dto.getEmail());
         if (existingUser.isPresent()) {
-            throw new UserExceptions.EmailAlreadyUsedException(dto.getEmail());
+            throw new UserExceptions.EmailAlreadyExistsException(dto.getEmail());
         }
 
         User user = new User();

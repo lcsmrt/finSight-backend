@@ -52,7 +52,7 @@ public class SeriesEditRequestDto {
     private SplitMode splitMode;
 
     @Valid
-    private List<ParticipantInputDto> participants;
+    private List<ParticipantDto> participants;
 
     @NotNull(message = "Edit scope cannot be null.")
     private SeriesEditScope scope;
@@ -104,7 +104,7 @@ public class SeriesEditRequestDto {
         return splitMode;
     }
 
-    public List<ParticipantInputDto> getParticipants() {
+    public List<ParticipantDto> getParticipants() {
         return participants;
     }
 

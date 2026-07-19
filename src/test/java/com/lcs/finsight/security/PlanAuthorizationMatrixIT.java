@@ -59,8 +59,6 @@ class PlanAuthorizationMatrixIT extends AbstractIntegrationTest {
         return new PlanCast(plan, owner, editor, contributor, viewer, nonMember);
     }
 
-    // --- read: every member sees every row, regardless of role ---------------------------
-
     @Test
     void readAllowedForEveryRoleRegardlessOfRowOwnership() throws Exception {
         PlanCast cast = castPlan();
@@ -84,8 +82,6 @@ class PlanAuthorizationMatrixIT extends AbstractIntegrationTest {
                         .with(testAuthHelper.asUser(cast.nonMember())))
                 .andExpect(status().isNotFound());
     }
-
-    // --- create: any member except VIEWER may create -------------------------------------
 
     @Test
     void createAllowedForOwnerEditorAndContributor() throws Exception {
@@ -125,8 +121,6 @@ class PlanAuthorizationMatrixIT extends AbstractIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
-    // --- edit-own: OWNER/EDITOR/CONTRIBUTOR may edit a transaction they created -----------
-
     @Test
     void editOwnAllowedForOwnerEditorAndContributor() throws Exception {
         PlanCast cast = castPlan();
@@ -160,8 +154,6 @@ class PlanAuthorizationMatrixIT extends AbstractIntegrationTest {
         assertUnchanged(ownedByViewer.getId(), "40.00");
     }
 
-    // --- edit-others: only OWNER/EDITOR may edit another member's row --------------------
-
     @Test
     void editOthersAllowedForOwnerAndEditor() throws Exception {
         PlanCast cast = castPlan();
@@ -190,8 +182,6 @@ class PlanAuthorizationMatrixIT extends AbstractIntegrationTest {
                         .content(transactionBody("999.00", "Should not persist")))
                 .andExpect(status().isForbidden());
 
-        // Fail-closed proof, two independent angles: a repository re-read and a fresh
-        // authenticated GET both show the original amount/description untouched.
         assertUnchanged(ownedByOwner.getId(), "70.00");
 
         MvcResult getResult = mockMvc.perform(get(ApiRoutes.FINANCIAL_TRANSACTION + "/{id}", cast.plan().getId(), ownedByOwner.getId())
@@ -233,8 +223,6 @@ class PlanAuthorizationMatrixIT extends AbstractIntegrationTest {
         assertUnchanged(tx.getId(), "70.00");
     }
 
-    // --- manage-plan: OWNER only -----------------------------------------------------------
-
     @Test
     void managePlanAllowedForOwnerOnly() throws Exception {
         PlanCast cast = castPlan();
@@ -258,7 +246,6 @@ class PlanAuthorizationMatrixIT extends AbstractIntegrationTest {
                     .andExpect(status().isForbidden());
         }
 
-        // Fail-closed: the plan's name never changed for any of the denied attempts.
         mockMvc.perform(get(ApiRoutes.PLAN + "/{id}", cast.plan().getId())
                         .with(testAuthHelper.asUser(cast.owner())))
                 .andExpect(status().isOk())
@@ -278,8 +265,6 @@ class PlanAuthorizationMatrixIT extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(Map.of("name", "Should not persist"))))
                 .andExpect(status().isNotFound());
     }
-
-    // --- helpers ---------------------------------------------------------------------------
 
     private String transactionBody(String amount, String description) throws Exception {
         return objectMapper.writeValueAsString(Map.of(

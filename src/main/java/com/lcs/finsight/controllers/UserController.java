@@ -8,6 +8,7 @@ import com.lcs.finsight.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -29,7 +30,7 @@ public class UserController {
     public ResponseEntity<UserResponseDto> createUser(@RequestBody @Valid UserRequestDto dto) {
         User createdUser = userService.create(dto);
         UserResponseDto response = userService.mapToResponseDTO(createdUser);
-        return ResponseEntity.status(201).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @Operation(summary = "Updates the authenticated user")

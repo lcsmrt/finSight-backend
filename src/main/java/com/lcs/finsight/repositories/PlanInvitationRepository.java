@@ -13,5 +13,7 @@ public interface PlanInvitationRepository extends JpaRepository<PlanInvitation, 
 
     Optional<PlanInvitation> findByToken(String token);
 
+    Optional<PlanInvitation> findByIdAndPlan(Long id, Plan plan);
+
     List<PlanInvitation> findAllByPlan(Plan plan);
 }

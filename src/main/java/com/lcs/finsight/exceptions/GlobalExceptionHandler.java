@@ -97,9 +97,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
-    @ExceptionHandler(UserExceptions.EmailAlreadyUsedException.class)
+    @ExceptionHandler(UserExceptions.EmailAlreadyExistsException.class)
     public ResponseEntity<ErrorResponseDto> handleEmailAlreadyUsed(
-            UserExceptions.EmailAlreadyUsedException exception,
+            UserExceptions.EmailAlreadyExistsException exception,
             HttpServletRequest request
     ) {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
@@ -112,6 +112,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler({
             PlanExceptions.PlanNotFoundException.class,
             PlanExceptions.NotAMemberException.class,
+            PlanExceptions.MemberNotFoundException.class,
             PlanExceptions.InvitationNotFoundException.class
     })
     public ResponseEntity<ErrorResponseDto> handlePlanNotFound(
@@ -155,9 +156,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
     }
 
-    @ExceptionHandler(PlanExceptions.InvitationInvalidException.class)
-    public ResponseEntity<ErrorResponseDto> handleInvitationInvalid(
-            PlanExceptions.InvitationInvalidException exception,
+    @ExceptionHandler(PlanExceptions.InvitationEmailMismatchException.class)
+    public ResponseEntity<ErrorResponseDto> handleInvitationEmailMismatch(
+            PlanExceptions.InvitationEmailMismatchException exception,
             HttpServletRequest request
     ) {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
@@ -167,9 +168,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
-    @ExceptionHandler(PlanExceptions.InvitationExpiredException.class)
-    public ResponseEntity<ErrorResponseDto> handleInvitationExpired(
-            PlanExceptions.InvitationExpiredException exception,
+    @ExceptionHandler({
+            PlanExceptions.InvitationExpiredException.class,
+            PlanExceptions.InvitationRevokedException.class,
+            PlanExceptions.InvitationAlreadyUsedException.class
+    })
+    public ResponseEntity<ErrorResponseDto> handleInvitationGone(
+            RuntimeException exception,
             HttpServletRequest request
     ) {
         ErrorResponseDto errorResponse = new ErrorResponseDto(
@@ -177,6 +182,23 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.GONE).body(errorResponse);
+    }
+
+    @ExceptionHandler({
+            FinancialTransactionExceptions.CategoryTypeMismatchException.class,
+            FinancialTransactionExceptions.ItemCategoryTypeMismatchException.class,
+            FinancialTransactionExceptions.ItemsTotalExceedsAmountException.class,
+            FinancialTransactionExceptions.ParticipantSharesMismatchException.class
+    })
+    public ResponseEntity<ErrorResponseDto> handleFinancialTransactionInvariant(
+            RuntimeException exception,
+            HttpServletRequest request
+    ) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

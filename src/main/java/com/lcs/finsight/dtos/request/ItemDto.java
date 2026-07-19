@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 
-public class ItemInputDto {
+public class ItemDto {
 
     @NotBlank(message = "Item description cannot be blank.")
     private String description;

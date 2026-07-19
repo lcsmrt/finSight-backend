@@ -65,8 +65,6 @@ class SeriesEditIT extends AbstractIntegrationTest {
             assertThat(occ.get("frequency").isNull()).isTrue();
         }
 
-        // Independent round trip: re-fetch the first and last occurrence by ID, don't trust only
-        // the create response.
         JsonNode firstPersisted = fetchOccurrence(plan, owner, occurrences.get(0).get("id").asLong());
         JsonNode lastPersisted = fetchOccurrence(plan, owner, occurrences.get(5).get("id").asLong());
         assertThat(firstPersisted.get("description").asText()).isEqualTo("Laptop (1/6)");
@@ -147,15 +145,12 @@ class SeriesEditIT extends AbstractIntegrationTest {
         assertThat(editResponse.get("count").asInt()).isEqualTo(1);
         assertThat(editResponse.get("occurrences").get(0).get("id").asLong()).isEqualTo(parcel3Id);
 
-        // Only parcel 3 changed. It keeps its k/N label, seriesId and parcelsNumber (never
-        // silently detached from the series) but picks up the new amount/description.
         JsonNode parcel3 = fetchOccurrence(plan, owner, parcel3Id);
         assertThat(parcel3.get("description").asText()).isEqualTo("Fixed Rent (3/6)");
         assertThat(parcel3.get("amount").decimalValue()).isEqualByComparingTo("999.00");
         assertThat(parcel3.get("seriesId").asText()).isEqualTo(seriesId);
         assertThat(parcel3.get("parcelsNumber").asInt()).isEqualTo(6);
 
-        // Every other occurrence, before and after the pivot, is untouched.
         for (int i = 0; i < 6; i++) {
             if (i == 2) {
                 continue;
@@ -166,7 +161,6 @@ class SeriesEditIT extends AbstractIntegrationTest {
             assertThat(occ.get("amount").decimalValue()).isEqualByComparingTo("300.00");
         }
 
-        // The definition itself is untouched by a THIS_ONE edit.
         JsonNode definition = fetchSeriesDefinition(plan, owner, seriesId);
         assertThat(definition.get("description").asText()).isEqualTo("Rent");
         assertThat(definition.get("amount").decimalValue()).isEqualByComparingTo("300.00");
@@ -187,11 +181,8 @@ class SeriesEditIT extends AbstractIntegrationTest {
                 "New Rent", "350.00", start, 6, "THIS_AND_FOLLOWING", parcel3Id);
         JsonNode editResponse = editSeries(plan, owner, seriesId, editBody, status().isOk());
 
-        // Exactly parcels 3-6 (4 rows) are in scope; nothing created or deleted since the count
-        // didn't change.
         assertThat(editResponse.get("count").asInt()).isEqualTo(4);
 
-        // Parcels 1-2 (strictly before the pivot's date) are untouched.
         for (int i = 0; i < 2; i++) {
             long id = occurrences.get(i).get("id").asLong();
             JsonNode occ = fetchOccurrence(plan, owner, id);
@@ -199,7 +190,6 @@ class SeriesEditIT extends AbstractIntegrationTest {
             assertThat(occ.get("amount").decimalValue()).isEqualByComparingTo("300.00");
         }
 
-        // Parcels 3-6 (on/after the pivot's date) are rewritten, keeping position-anchored labels.
         for (int i = 2; i < 6; i++) {
             long id = occurrences.get(i).get("id").asLong();
             JsonNode occ = fetchOccurrence(plan, owner, id);
@@ -228,8 +218,6 @@ class SeriesEditIT extends AbstractIntegrationTest {
         String seriesId = created.get("seriesId").asText();
         JsonNode occurrences = created.get("occurrences");
 
-        // ALL scope needs no pivot: every occurrence, including ones dated in the past relative
-        // to any pivot, is rewritten.
         Map<String, Object> editBody = editBody("All New Rent", "402.00", start, 6, "ALL", null);
         editBody.put("participants", List.of(
                 Map.of("memberId", owner.getId()), Map.of("memberId", member.getId())));
@@ -243,7 +231,6 @@ class SeriesEditIT extends AbstractIntegrationTest {
             assertThat(occ.get("description").asText()).isEqualTo("All New Rent (" + (i + 1) + "/6)");
             assertThat(occ.get("amount").decimalValue()).isEqualByComparingTo("402.00");
 
-            // SPLIT-01: participations sum exactly to the new amount on every rewritten row.
             BigDecimal sum = BigDecimal.ZERO;
             for (JsonNode participant : occ.get("participants")) {
                 sum = sum.add(participant.get("shareAmount").decimalValue());
@@ -263,8 +250,6 @@ class SeriesEditIT extends AbstractIntegrationTest {
         String seriesId = created.get("seriesId").asText();
         long parcel1Id = created.get("occurrences").get(0).get("id").asLong();
 
-        // D10: a total-parcel-count change is only permitted at scope ALL. Attempting it at
-        // THIS_ONE (a narrower scope) must be rejected with 400, leaving the series unmodified.
         Map<String, Object> editBody = editBody("Rent", "300.00", start, 8, "THIS_ONE", parcel1Id);
         editSeries(plan, owner, seriesId, editBody, status().isBadRequest());
 
@@ -300,8 +285,6 @@ class SeriesEditIT extends AbstractIntegrationTest {
         JsonNode created = createSeries(plan, owner, installmentBody("Rent", "300.00", start, 6, null));
         String seriesId = created.get("seriesId").asText();
 
-        // At ALL scope the count change is allowed: existing rows relabel to the new total and
-        // trailing rows are generated (SEDIT-11) -- never a mixed 4/6 next to 7/9 series.
         Map<String, Object> editBody = editBody("Rent", "300.00", start, 9, "ALL", null);
         JsonNode editResponse = editSeries(plan, owner, seriesId, editBody, status().isOk());
 
@@ -372,8 +355,6 @@ class SeriesEditIT extends AbstractIntegrationTest {
         JsonNode definition = fetchSeriesDefinition(plan, owner, seriesId);
         assertThat(definition.get("endDate").asText()).isEqualTo(originalEnd.toString());
     }
-
-    // --- helpers ------------------------------------------------------------------------------
 
     private Map<String, Object> installmentBody(
             String description, String amount, LocalDate start, int parcelsNumber, Integer currentParcel) {

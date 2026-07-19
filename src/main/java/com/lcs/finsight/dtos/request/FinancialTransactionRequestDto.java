@@ -5,6 +5,7 @@ import com.lcs.finsight.models.SplitMode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -18,6 +19,7 @@ public class FinancialTransactionRequestDto {
     private FinancialTransactionType type;
 
     @NotNull(message = "Amount cannot be null.")
+    @Positive(message = "Amount must be positive.")
     private BigDecimal amount;
 
     @NotBlank(message = "Description cannot be blank.")
@@ -26,16 +28,17 @@ public class FinancialTransactionRequestDto {
     private String frequency;
     private Integer parcelsNumber;
 
+    @NotNull(message = "Start date cannot be null.")
     private LocalDate startDate;
     private LocalDate endDate;
 
     private SplitMode splitMode;
 
     @Valid
-    private List<ParticipantInputDto> participants;
+    private List<ParticipantDto> participants;
 
     @Valid
-    private List<ItemInputDto> items;
+    private List<ItemDto> items;
 
     public Long getCategoryId() {
         return categoryId;
@@ -73,11 +76,11 @@ public class FinancialTransactionRequestDto {
         return splitMode;
     }
 
-    public List<ParticipantInputDto> getParticipants() {
+    public List<ParticipantDto> getParticipants() {
         return participants;
     }
 
-    public List<ItemInputDto> getItems() {
+    public List<ItemDto> getItems() {
         return items;
     }
 }

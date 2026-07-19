@@ -33,14 +33,8 @@ public class FinancialTransactionCategoryService {
 
     @Transactional(readOnly = true)
     public FinancialTransactionCategory findById(Long id, PlanContext ctx) {
-        FinancialTransactionCategory category = categoryRepository.findById(id)
+        return categoryRepository.findByIdAndPlan(id, ctx.getPlan())
                 .orElseThrow(() -> new FinancialTransactionCategoryExceptions.FinancialTransactionCategoryNotFoundException(id));
-
-        if (!category.getPlan().getId().equals(ctx.getPlan().getId())) {
-            throw new FinancialTransactionCategoryExceptions.FinancialTransactionCategoryNotFoundException(id);
-        }
-
-        return category;
     }
 
     private static final Set<String> SORTABLE_FIELDS = Set.of("description", "spendingLimit");

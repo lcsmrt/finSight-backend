@@ -47,9 +47,6 @@ class DashboardPartitionIT extends AbstractIntegrationTest {
         long foodId = createCategory(plan, owner, "DEBIT", "Food").get("id").asLong();
         long cleaningId = createCategory(plan, owner, "DEBIT", "Cleaning").get("id").asLong();
 
-        // amount=150; items: Food(90, categorized) + Cleaning(40, categorized) + Misc(10, uncategorized).
-        // Un-itemized slack = 150 - 140 = 10. Groceries keeps the uncategorized item's 10 plus the
-        // 10 slack => 20. Food and Cleaning each keep exactly their own item amount.
         Map<String, Object> body = Map.of(
                 "type", "DEBIT",
                 "amount", new BigDecimal("150.00"),
@@ -70,8 +67,6 @@ class DashboardPartitionIT extends AbstractIntegrationTest {
         assertThat(categorySpent(breakdown, "Food")).isEqualByComparingTo("90.00");
         assertThat(categorySpent(breakdown, "Cleaning")).isEqualByComparingTo("40.00");
 
-        // The partition never loses or fabricates money: the three buckets sum back to the
-        // transaction's own amount.
         BigDecimal partitionedSum = categorySpent(breakdown, "Groceries")
                 .add(categorySpent(breakdown, "Food"))
                 .add(categorySpent(breakdown, "Cleaning"));
@@ -99,8 +94,6 @@ class DashboardPartitionIT extends AbstractIntegrationTest {
         JsonNode dashboard = fetchDashboard(plan, owner);
         JsonNode breakdown = dashboard.get("categoryBreakdown");
 
-        // No items at all: spent[C] collapses to A[C] - 0 + 0 = A[C], the raw transaction amount,
-        // exactly as it behaved before items existed.
         assertThat(breakdown).hasSize(1);
         assertThat(categorySpent(breakdown, "Utilities")).isEqualByComparingTo("75.00");
         assertThat(dashboard.get("totalExpenses").decimalValue()).isEqualByComparingTo("75.00");
@@ -108,7 +101,6 @@ class DashboardPartitionIT extends AbstractIntegrationTest {
 
     @Test
     void topLineTotalsAreIdenticalRegardlessOfItemization() throws Exception {
-        // Plan A: a plain income + a plain expense transaction, no items at all.
         User ownerA = fixtures.aUser();
         Plan planA = fixtures.aPlan(ownerA);
 
@@ -123,7 +115,6 @@ class DashboardPartitionIT extends AbstractIntegrationTest {
                 "description", "Rent",
                 "startDate", TODAY.toString()));
 
-        // Plan B: the same amounts and types, but fully itemized.
         User ownerB = fixtures.aUser();
         Plan planB = fixtures.aPlan(ownerB);
 

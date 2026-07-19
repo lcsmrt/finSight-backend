@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springdoc.core.annotations.ParameterObject;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -48,7 +49,7 @@ public class FinancialTransactionCategoryController {
     public ResponseEntity<FinancialTransactionCategoryResponseDto> createCategory(
             @RequestBody @Valid FinancialTransactionCategoryRequestDto dto,
             PlanContext ctx) {
-        return ResponseEntity.status(201).body(new FinancialTransactionCategoryResponseDto(categoryService.create(dto, ctx)));
+        return ResponseEntity.status(HttpStatus.CREATED).body(new FinancialTransactionCategoryResponseDto(categoryService.create(dto, ctx)));
     }
 
     @Operation(summary = "Updates a transaction category for the plan")

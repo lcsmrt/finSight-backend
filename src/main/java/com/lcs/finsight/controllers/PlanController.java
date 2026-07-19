@@ -13,6 +13,7 @@ import com.lcs.finsight.utils.ApiRoutes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -40,7 +41,7 @@ public class PlanController {
             @AuthenticationPrincipal UserDetails userDetails) {
         User loggedUser = userService.findByEmail(userDetails.getUsername());
         Plan plan = planService.createPlan(dto.getName(), loggedUser);
-        return ResponseEntity.status(201)
+        return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new PlanResponseDto(planService.getMembership(plan.getId(), loggedUser)));
     }
 
@@ -113,8 +114,7 @@ public class PlanController {
             @RequestBody @Valid TransferOwnershipRequestDto dto,
             @AuthenticationPrincipal UserDetails userDetails) {
         User loggedUser = userService.findByEmail(userDetails.getUsername());
-        User targetUser = userService.findById(dto.getNewOwnerUserId());
-        planService.transferOwnership(id, targetUser, dto.getPreviousOwnerRole(), loggedUser);
+        planService.transferOwnership(id, dto.getNewOwnerUserId(), dto.getPreviousOwnerRole(), loggedUser);
         return ResponseEntity.noContent().build();
     }
 
@@ -126,9 +126,8 @@ public class PlanController {
             @RequestBody @Valid UpdateMemberRoleRequestDto dto,
             @AuthenticationPrincipal UserDetails userDetails) {
         User loggedUser = userService.findByEmail(userDetails.getUsername());
-        User targetUser = userService.findById(userId);
         return ResponseEntity.ok(new PlanMemberResponseDto(
-                planService.changeMemberRole(id, targetUser, dto.getRole(), loggedUser)));
+                planService.changeMemberRole(id, userId, dto.getRole(), loggedUser)));
     }
 
     @Operation(summary = "Removes a member from a plan (owner only)")
@@ -138,8 +137,7 @@ public class PlanController {
             @PathVariable Long userId,
             @AuthenticationPrincipal UserDetails userDetails) {
         User loggedUser = userService.findByEmail(userDetails.getUsername());
-        User targetUser = userService.findById(userId);
-        planService.removeMember(id, targetUser, loggedUser);
+        planService.removeMember(id, userId, loggedUser);
         return ResponseEntity.noContent().build();
     }
 }

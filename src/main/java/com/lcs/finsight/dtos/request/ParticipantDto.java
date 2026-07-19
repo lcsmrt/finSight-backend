@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 
-public class ParticipantInputDto {
+public class ParticipantDto {
 
     @NotNull(message = "Participant member id cannot be null.")
     private Long memberId;

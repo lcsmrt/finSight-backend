@@ -56,8 +56,6 @@ class AuthenticationIT extends AbstractIntegrationTest {
         return body.get("token").asText();
     }
 
-    // --- register -> login -> token proves usable -------------------------------------------
-
     @Test
     void registerThenLoginIssuesTokenThatGrantsAuthenticatedAccess() throws Exception {
         String email = "alice-" + System.nanoTime() + "@test.com";
@@ -66,7 +64,6 @@ class AuthenticationIT extends AbstractIntegrationTest {
         String token = login(email, "password123");
         assertThat(token).isNotBlank();
 
-        // The token must be usable for a real authenticated call, not just well-formed.
         mockMvc.perform(get(ApiRoutes.AUTH + "/profile")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
@@ -94,8 +91,6 @@ class AuthenticationIT extends AbstractIntegrationTest {
         assertThat(created.has("token")).isFalse();
     }
 
-    // --- login: success / wrong password ------------------------------------------------------
-
     @Test
     void loginWithCorrectCredentialsReturnsValidJwt() throws Exception {
         String email = "carol-" + System.nanoTime() + "@test.com";
@@ -103,7 +98,6 @@ class AuthenticationIT extends AbstractIntegrationTest {
 
         String token = login(email, "password123");
         assertThat(token).isNotBlank();
-        // A JWT is three dot-separated base64url segments (header.payload.signature).
         assertThat(token.split("\\.")).hasSize(3);
     }
 
@@ -137,8 +131,6 @@ class AuthenticationIT extends AbstractIntegrationTest {
                 .andExpect(status().isInternalServerError());
     }
 
-    // --- per-plan access: a real-minted token is still scoped by plan membership -------------
-
     @Test
     void registeredUserCanAccessTheirOwnAutoProvisionedPlan() throws Exception {
         String email = "erin-" + System.nanoTime() + "@test.com";
@@ -171,7 +163,6 @@ class AuthenticationIT extends AbstractIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenB))
                 .andExpect(status().isNotFound());
 
-        // The rightful owner, using their own real-minted token, still succeeds.
         mockMvc.perform(get(ApiRoutes.PLAN + "/{id}", planIdA)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenA))
                 .andExpect(status().isOk());

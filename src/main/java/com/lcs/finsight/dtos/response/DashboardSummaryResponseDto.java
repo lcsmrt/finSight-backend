@@ -3,7 +3,7 @@ package com.lcs.finsight.dtos.response;
 import java.math.BigDecimal;
 import java.util.List;
 
-public class DashboardSummaryDto {
+public class DashboardSummaryResponseDto {
     private final BigDecimal totalIncome;
     private final BigDecimal totalExpenses;
     private final BigDecimal netBalance;
@@ -11,7 +11,7 @@ public class DashboardSummaryDto {
     private final List<MonthlyTrendDto> monthlyTrend;
     private final List<PersonBreakdownDto> personBreakdown;
 
-    public DashboardSummaryDto(
+    public DashboardSummaryResponseDto(
             BigDecimal totalIncome,
             BigDecimal totalExpenses,
             BigDecimal netBalance,

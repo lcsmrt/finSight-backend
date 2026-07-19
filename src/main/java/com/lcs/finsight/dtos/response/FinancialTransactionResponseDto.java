@@ -10,7 +10,6 @@ import com.lcs.finsight.models.User;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class FinancialTransactionResponseDto {
     private final Long id;
@@ -47,10 +46,10 @@ public class FinancialTransactionResponseDto {
         this.splitMode = transaction.getSplitMode();
         this.participants = transaction.getParticipants().stream()
                 .map(ParticipantDto::new)
-                .collect(Collectors.toList());
+                .toList();
         this.items = transaction.getItems().stream()
                 .map(ItemDto::new)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public static class CreatedByDto {

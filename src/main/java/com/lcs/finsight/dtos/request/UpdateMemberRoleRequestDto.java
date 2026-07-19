@@ -5,10 +5,10 @@ import jakarta.validation.constraints.NotNull;
 
 public class UpdateMemberRoleRequestDto {
 
-	@NotNull(message = "Role cannot be null.")
-	private PlanRole role;
+    @NotNull(message = "Role cannot be null.")
+    private PlanRole role;
 
-	public PlanRole getRole() {
-		return role;
-	}
+    public PlanRole getRole() {
+        return role;
+    }
 }

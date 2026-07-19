@@ -81,12 +81,14 @@ public class PlanService {
         return membershipRepository.findAllByPlan(requesterMembership.getPlan());
     }
 
+    @Transactional(readOnly = true)
     public void requireNotLastPlan(User user) {
         if (membershipRepository.findAllByUser(user).size() <= 1) {
             throw new PlanExceptions.LastPlanException();
         }
     }
 
+    @Transactional(readOnly = true)
     public void requireNotLastOwner(Plan plan) {
         if (membershipRepository.countByPlanAndRole(plan, PlanRole.OWNER) <= 1) {
             throw new PlanExceptions.LastOwnerException();
@@ -94,7 +96,7 @@ public class PlanService {
     }
 
     @Transactional
-    public PlanMembership changeMemberRole(Long planId, User targetUser, PlanRole newRole, User requester) {
+    public PlanMembership changeMemberRole(Long planId, Long targetUserId, PlanRole newRole, User requester) {
         if (newRole == PlanRole.OWNER) {
             throw new IllegalArgumentException("Use transferOwnership to make another member the owner.");
         }
@@ -103,8 +105,8 @@ public class PlanService {
         planAuthorization.requireOwner(requesterMembership.getRole());
 
         Plan plan = requesterMembership.getPlan();
-        PlanMembership targetMembership = membershipRepository.findByPlanAndUser(plan, targetUser)
-                .orElseThrow(() -> new PlanExceptions.NotAMemberException(planId));
+        PlanMembership targetMembership = membershipRepository.findByPlanAndUser_Id(plan, targetUserId)
+                .orElseThrow(() -> new PlanExceptions.MemberNotFoundException(planId, targetUserId));
 
         if (targetMembership.getRole() == PlanRole.OWNER) {
             requireNotLastOwner(plan);
@@ -138,13 +140,13 @@ public class PlanService {
     }
 
     @Transactional
-    public void removeMember(Long planId, User targetUser, User requester) {
+    public void removeMember(Long planId, Long targetUserId, User requester) {
         PlanMembership requesterMembership = getMembership(planId, requester);
         planAuthorization.requireOwner(requesterMembership.getRole());
 
         Plan plan = requesterMembership.getPlan();
-        PlanMembership targetMembership = membershipRepository.findByPlanAndUser(plan, targetUser)
-                .orElseThrow(() -> new PlanExceptions.NotAMemberException(planId));
+        PlanMembership targetMembership = membershipRepository.findByPlanAndUser_Id(plan, targetUserId)
+                .orElseThrow(() -> new PlanExceptions.MemberNotFoundException(planId, targetUserId));
 
         if (targetMembership.getRole() == PlanRole.OWNER) {
             requireNotLastOwner(plan);
@@ -166,8 +168,8 @@ public class PlanService {
     }
 
     @Transactional
-    public void transferOwnership(Long planId, User targetUser, PlanRole previousOwnerRole, User requester) {
-        if (targetUser.getId().equals(requester.getId())) {
+    public void transferOwnership(Long planId, Long targetUserId, PlanRole previousOwnerRole, User requester) {
+        if (targetUserId.equals(requester.getId())) {
             throw new IllegalArgumentException("You cannot transfer ownership to yourself.");
         }
 
@@ -175,8 +177,8 @@ public class PlanService {
         planAuthorization.requireOwner(requesterMembership.getRole());
 
         Plan plan = requesterMembership.getPlan();
-        PlanMembership newOwnerMembership = membershipRepository.findByPlanAndUser(plan, targetUser)
-                .orElseThrow(() -> new PlanExceptions.NotAMemberException(planId));
+        PlanMembership newOwnerMembership = membershipRepository.findByPlanAndUser_Id(plan, targetUserId)
+                .orElseThrow(() -> new PlanExceptions.MemberNotFoundException(planId, targetUserId));
 
         PlanRole demotedRole = previousOwnerRole != null ? previousOwnerRole : PlanRole.EDITOR;
 
