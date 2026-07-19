@@ -1,5 +1,6 @@
 package com.lcs.finsight.services;
 
+import com.lcs.finsight.dtos.request.DashboardFilterDto;
 import com.lcs.finsight.dtos.response.CategoryBreakdownDto;
 import com.lcs.finsight.dtos.response.DashboardSummaryResponseDto;
 import com.lcs.finsight.dtos.response.MonthlyTrendDto;
@@ -36,8 +37,11 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardSummaryResponseDto getSummary(PlanContext ctx, LocalDate startDate, LocalDate endDate, Long memberId) {
+    public DashboardSummaryResponseDto getSummary(DashboardFilterDto filter, PlanContext ctx) {
         Plan plan = ctx.getPlan();
+        LocalDate startDate = filter.getStartDate();
+        LocalDate endDate = filter.getEndDate();
+        Long memberId = filter.getMemberId();
 
         BigDecimal totalIncome = financialTransactionRepository.sumByPlanAndTypeAndDateRange(
                 plan, FinancialTransactionType.CREDIT, startDate, endDate, memberId);

@@ -1,7 +1,6 @@
 package com.lcs.finsight.services;
 
 import com.lcs.finsight.dtos.request.UserRequestDto;
-import com.lcs.finsight.dtos.response.UserResponseDto;
 import com.lcs.finsight.exceptions.UserExceptions;
 import com.lcs.finsight.models.User;
 import com.lcs.finsight.repositories.UserRepository;
@@ -26,12 +25,6 @@ public class UserService {
     }
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
-
-    @Transactional(readOnly = true)
-    public User findByEmail(String email) {
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserExceptions.UsernameNotFoundException(email));
-    }
 
     @Transactional
     public User create(UserRequestDto dto) {
@@ -59,10 +52,6 @@ public class UserService {
         user.setPassword(encryptedPassword);
 
         return userRepository.save(user);
-    }
-
-    public UserResponseDto mapToResponseDTO(User user) {
-        return new UserResponseDto(user);
     }
 
 }

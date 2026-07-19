@@ -86,7 +86,8 @@ public class FinancialTransactionController {
             @RequestParam("file") MultipartFile file,
             PlanContext ctx) {
         int imported = financialTransactionService.importFromNubankCsv(file, ctx);
-        return ResponseEntity.status(HttpStatus.CREATED).body(new FinancialTransactionImportResponseDto(imported));
+        HttpStatus status = imported > 0 ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(new FinancialTransactionImportResponseDto(imported));
     }
 
     @Operation(summary = "Deletes a transaction")

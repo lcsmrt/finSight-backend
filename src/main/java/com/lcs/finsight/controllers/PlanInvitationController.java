@@ -6,9 +6,9 @@ import com.lcs.finsight.dtos.response.InvitationPreviewResponseDto;
 import com.lcs.finsight.dtos.response.InvitationResponseDto;
 import com.lcs.finsight.models.PlanInvitation;
 import com.lcs.finsight.models.User;
+import com.lcs.finsight.security.CurrentUser;
 import com.lcs.finsight.security.PlanContext;
 import com.lcs.finsight.services.PlanInvitationService;
-import com.lcs.finsight.services.UserService;
 import com.lcs.finsight.utils.ApiRoutes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -16,8 +16,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,11 +25,9 @@ import java.util.List;
 public class PlanInvitationController {
 
     private final PlanInvitationService invitationService;
-    private final UserService userService;
 
-    public PlanInvitationController(PlanInvitationService invitationService, UserService userService) {
+    public PlanInvitationController(PlanInvitationService invitationService) {
         this.invitationService = invitationService;
-        this.userService = userService;
     }
 
     @Operation(summary = "Creates an invitation (email or link) for the plan; owner only")
@@ -71,8 +67,7 @@ public class PlanInvitationController {
     @PostMapping(ApiRoutes.INVITATION + "/{token}/accept")
     public ResponseEntity<AcceptInvitationResponseDto> acceptInvitation(
             @PathVariable String token,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User actor = userService.findByEmail(userDetails.getUsername());
+            @CurrentUser User actor) {
         PlanInvitationService.AcceptResult result = invitationService.accept(token, actor);
         HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status).body(new AcceptInvitationResponseDto(result.membership()));

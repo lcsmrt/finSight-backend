@@ -5,18 +5,16 @@ import com.lcs.finsight.dtos.request.TransferOwnershipRequestDto;
 import com.lcs.finsight.dtos.request.UpdateMemberRoleRequestDto;
 import com.lcs.finsight.dtos.response.PlanMemberResponseDto;
 import com.lcs.finsight.dtos.response.PlanResponseDto;
-import com.lcs.finsight.models.Plan;
+import com.lcs.finsight.models.PlanMembership;
 import com.lcs.finsight.models.User;
+import com.lcs.finsight.security.CurrentUser;
 import com.lcs.finsight.services.PlanService;
-import com.lcs.finsight.services.UserService;
 import com.lcs.finsight.utils.ApiRoutes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,29 +25,23 @@ import java.util.List;
 public class PlanController {
 
     private final PlanService planService;
-    private final UserService userService;
 
-    public PlanController(PlanService planService, UserService userService) {
+    public PlanController(PlanService planService) {
         this.planService = planService;
-        this.userService = userService;
     }
 
     @Operation(summary = "Creates a new plan owned by the authenticated user")
     @PostMapping
     public ResponseEntity<PlanResponseDto> createPlan(
             @RequestBody @Valid PlanRequestDto dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
-        Plan plan = planService.createPlan(dto.getName(), loggedUser);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new PlanResponseDto(planService.getMembership(plan.getId(), loggedUser)));
+            @CurrentUser User loggedUser) {
+        PlanMembership membership = planService.createPlan(dto.getName(), loggedUser);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new PlanResponseDto(membership));
     }
 
     @Operation(summary = "Fetches all plans the authenticated user belongs to")
     @GetMapping
-    public ResponseEntity<List<PlanResponseDto>> getPlans(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+    public ResponseEntity<List<PlanResponseDto>> getPlans(@CurrentUser User loggedUser) {
         List<PlanResponseDto> plans = planService.findMembershipsForUser(loggedUser).stream()
                 .map(PlanResponseDto::new)
                 .toList();
@@ -60,8 +52,7 @@ public class PlanController {
     @GetMapping("/{id}")
     public ResponseEntity<PlanResponseDto> getPlan(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+            @CurrentUser User loggedUser) {
         return ResponseEntity.ok(new PlanResponseDto(planService.getMembership(id, loggedUser)));
     }
 
@@ -69,8 +60,7 @@ public class PlanController {
     @GetMapping("/{id}/members")
     public ResponseEntity<List<PlanMemberResponseDto>> getMembers(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+            @CurrentUser User loggedUser) {
         List<PlanMemberResponseDto> members = planService.getMembers(id, loggedUser).stream()
                 .map(PlanMemberResponseDto::new)
                 .toList();
@@ -82,8 +72,7 @@ public class PlanController {
     public ResponseEntity<PlanResponseDto> renamePlan(
             @PathVariable Long id,
             @RequestBody @Valid PlanRequestDto dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+            @CurrentUser User loggedUser) {
         return ResponseEntity.ok(new PlanResponseDto(planService.renamePlan(id, dto.getName(), loggedUser)));
     }
 
@@ -91,8 +80,7 @@ public class PlanController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePlan(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+            @CurrentUser User loggedUser) {
         planService.deletePlan(id, loggedUser);
         return ResponseEntity.noContent().build();
     }
@@ -101,8 +89,7 @@ public class PlanController {
     @PostMapping("/{id}/leave")
     public ResponseEntity<Void> leavePlan(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+            @CurrentUser User loggedUser) {
         planService.leavePlan(id, loggedUser);
         return ResponseEntity.noContent().build();
     }
@@ -112,8 +99,7 @@ public class PlanController {
     public ResponseEntity<Void> transferOwnership(
             @PathVariable Long id,
             @RequestBody @Valid TransferOwnershipRequestDto dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+            @CurrentUser User loggedUser) {
         planService.transferOwnership(id, dto.getNewOwnerUserId(), dto.getPreviousOwnerRole(), loggedUser);
         return ResponseEntity.noContent().build();
     }
@@ -124,8 +110,7 @@ public class PlanController {
             @PathVariable Long id,
             @PathVariable Long userId,
             @RequestBody @Valid UpdateMemberRoleRequestDto dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+            @CurrentUser User loggedUser) {
         return ResponseEntity.ok(new PlanMemberResponseDto(
                 planService.changeMemberRole(id, userId, dto.getRole(), loggedUser)));
     }
@@ -135,8 +120,7 @@ public class PlanController {
     public ResponseEntity<Void> removeMember(
             @PathVariable Long id,
             @PathVariable Long userId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+            @CurrentUser User loggedUser) {
         planService.removeMember(id, userId, loggedUser);
         return ResponseEntity.noContent().build();
     }

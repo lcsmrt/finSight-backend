@@ -4,6 +4,7 @@ import com.lcs.finsight.utils.ApiRoutes;
 import com.lcs.finsight.dtos.request.UserRequestDto;
 import com.lcs.finsight.dtos.response.UserResponseDto;
 import com.lcs.finsight.models.User;
+import com.lcs.finsight.security.CurrentUser;
 import com.lcs.finsight.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -11,8 +12,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Users")
@@ -31,25 +30,21 @@ public class UserController {
     @PostMapping
     public ResponseEntity<UserResponseDto> createUser(@RequestBody @Valid UserRequestDto dto) {
         User createdUser = userService.create(dto);
-        UserResponseDto response = userService.mapToResponseDTO(createdUser);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new UserResponseDto(createdUser));
     }
 
     @Operation(summary = "Returns the authenticated user's data")
     @GetMapping("/me")
-    public ResponseEntity<UserResponseDto> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
-        User user = userService.findByEmail(userDetails.getUsername());
-        return ResponseEntity.ok(userService.mapToResponseDTO(user));
+    public ResponseEntity<UserResponseDto> getCurrentUser(@CurrentUser User user) {
+        return ResponseEntity.ok(new UserResponseDto(user));
     }
 
     @Operation(summary = "Updates the authenticated user")
     @PutMapping
     public ResponseEntity<UserResponseDto> updateUser(
             @RequestBody @Valid UserRequestDto dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User loggedUser = userService.findByEmail(userDetails.getUsername());
+            @CurrentUser User loggedUser) {
         User updatedUser = userService.update(loggedUser, dto);
-        UserResponseDto response = userService.mapToResponseDTO(updatedUser);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new UserResponseDto(updatedUser));
     }
 }

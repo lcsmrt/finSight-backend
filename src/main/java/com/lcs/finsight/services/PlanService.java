@@ -32,16 +32,16 @@ public class PlanService {
     }
 
     @Transactional
-    public Plan createPlan(String name, User owner) {
+    public PlanMembership createPlan(String name, User owner) {
         return createPlanInternal(name, owner, false);
     }
 
     @Transactional
-    public Plan provisionDefaultPlan(User owner) {
+    public PlanMembership provisionDefaultPlan(User owner) {
         return createPlanInternal("My plan", owner, true);
     }
 
-    private Plan createPlanInternal(String name, User owner, boolean isDefault) {
+    private PlanMembership createPlanInternal(String name, User owner, boolean isDefault) {
         Plan plan = new Plan();
         plan.setName(name);
         plan.setCreatedBy(owner);
@@ -52,9 +52,7 @@ public class PlanService {
         membership.setPlan(savedPlan);
         membership.setUser(owner);
         membership.setRole(PlanRole.OWNER);
-        membershipRepository.save(membership);
-
-        return savedPlan;
+        return membershipRepository.save(membership);
     }
 
     @Transactional(readOnly = true)

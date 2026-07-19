@@ -105,8 +105,13 @@ class CsvImportIT extends AbstractIntegrationTest {
         MvcResult result = mockMvc.perform(multipart(ApiRoutes.FINANCIAL_TRANSACTION + "/import", plan.getId())
                         .file(file)
                         .with(testAuthHelper.asUser(asUser)))
-                .andExpect(status().isOk())
                 .andReturn();
-        return objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+
+        // Import is 201 when it creates rows and 200 when every row was a duplicate (nothing
+        // created) — assert the status honors both cases, keyed off the reported count.
+        int expectedStatus = body.get("imported").asInt() > 0 ? 201 : 200;
+        assertThat(result.getResponse().getStatus()).isEqualTo(expectedStatus);
+        return body;
     }
 }
