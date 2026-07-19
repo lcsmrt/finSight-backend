@@ -85,18 +85,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
-    @ExceptionHandler(UserExceptions.UsernameNotFoundException.class)
-    public ResponseEntity<ErrorResponseDto> handleUserNotFound(
-            RuntimeException exception,
-            HttpServletRequest request
-    ) {
-        ErrorResponseDto errorResponse = new ErrorResponseDto(
-                exception.getMessage(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
-    }
-
     @ExceptionHandler(UserExceptions.EmailAlreadyExistsException.class)
     public ResponseEntity<ErrorResponseDto> handleEmailAlreadyUsed(
             UserExceptions.EmailAlreadyExistsException exception,

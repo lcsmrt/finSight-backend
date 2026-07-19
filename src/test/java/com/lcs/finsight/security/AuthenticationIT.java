@@ -101,6 +101,15 @@ class AuthenticationIT extends AbstractIntegrationTest {
         assertThat(token.split("\\.")).hasSize(3);
     }
 
+    private MvcResult attemptLogin(String email, String password) throws Exception {
+        return mockMvc.perform(post(ApiRoutes.AUTH + "/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "email", email,
+                                "password", password))))
+                .andReturn();
+    }
+
     @Test
     void loginWithWrongPasswordIsRejected() throws Exception {
         String email = "dave-" + System.nanoTime() + "@test.com";
@@ -116,19 +125,35 @@ class AuthenticationIT extends AbstractIntegrationTest {
 
     @Test
     void loginForUnknownEmailIsRejected() throws Exception {
-        // Real behavior differs from the wrong-password case: DaoAuthenticationProvider wraps
-        // CustomUserDetailsService's UsernameNotFoundException in an InternalAuthenticationServiceException,
-        // which GlobalExceptionHandler has no specific mapping for, so it falls through to the
-        // generic 500 handler instead of BadCredentialsException's 401. Asserted as-is per the
-        // real controller/service behavior rather than the (arguably more correct) 401 one might
-        // expect — this inconsistency is a candidate for a follow-up fix, not something to paper
-        // over here.
+        // A login for an email with no matching user must be rejected with 401 (not 500):
+        // CustomUserDetailsService throws Spring Security's own UsernameNotFoundException, which
+        // DaoAuthenticationProvider's hideUserNotFoundExceptions converts to a BadCredentialsException,
+        // mapped to 401 by GlobalExceptionHandler.
         mockMvc.perform(post(ApiRoutes.AUTH + "/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "email", "nobody-" + System.nanoTime() + "@test.com",
                                 "password", "password123"))))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void unknownEmailAndWrongPasswordAreIndistinguishable() throws Exception {
+        // Anti-enumeration: an unknown email and a wrong password for a known email must return the
+        // exact same status and body, so a caller can't tell whether an email is registered.
+        String knownEmail = "heidi-" + System.nanoTime() + "@test.com";
+        register(knownEmail);
+
+        MvcResult wrongPassword = attemptLogin(knownEmail, "not-the-right-password");
+        MvcResult unknownEmail = attemptLogin("nobody-" + System.nanoTime() + "@test.com", "password123");
+
+        assertThat(unknownEmail.getResponse().getStatus())
+                .isEqualTo(wrongPassword.getResponse().getStatus());
+
+        JsonNode wrongPasswordBody = objectMapper.readTree(wrongPassword.getResponse().getContentAsString());
+        JsonNode unknownEmailBody = objectMapper.readTree(unknownEmail.getResponse().getContentAsString());
+        assertThat(unknownEmailBody.get("message").asText())
+                .isEqualTo(wrongPasswordBody.get("message").asText());
     }
 
     @Test

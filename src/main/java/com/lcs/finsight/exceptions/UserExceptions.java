@@ -7,10 +7,4 @@ public class UserExceptions {
             super("Email " + email + " is already in use.");
         }
     }
-
-    public static class UsernameNotFoundException extends RuntimeException {
-        public UsernameNotFoundException(String email) {
-            super("User not found for email " + email + ".");
-        }
-    }
 }
