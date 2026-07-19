@@ -11,6 +11,7 @@ import com.lcs.finsight.services.PlanInvitationService;
 import com.lcs.finsight.services.UserService;
 import com.lcs.finsight.utils.ApiRoutes;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "Plan Invitations")
+@Tag(name = "Invitations")
 @RestController
 public class PlanInvitationController {
 
@@ -60,6 +61,7 @@ public class PlanInvitationController {
     }
 
     @Operation(summary = "Previews an invitation by token before accepting")
+    @SecurityRequirements
     @GetMapping(ApiRoutes.INVITATION + "/{token}")
     public ResponseEntity<InvitationPreviewResponseDto> previewInvitation(@PathVariable String token) {
         return ResponseEntity.ok(new InvitationPreviewResponseDto(invitationService.preview(token)));

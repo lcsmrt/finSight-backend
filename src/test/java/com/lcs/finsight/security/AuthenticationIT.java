@@ -17,7 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
 /**
- * Drives the real registration ({@code POST /users}) and login ({@code POST /auth/login})
+ * Drives the real registration ({@code POST /user}) and login ({@code POST /auth/login})
  * endpoints end-to-end through the actual security filter chain — no {@code Fixtures.aUser()}
  * shortcuts and no {@code @WithMockUser} — to prove the auth slice actually issues and honors
  * JWTs, and that the two-layer plan authorization model (see {@link PlanAuthorizationMatrixIT})
@@ -64,7 +64,7 @@ class AuthenticationIT extends AbstractIntegrationTest {
         String token = login(email, "password123");
         assertThat(token).isNotBlank();
 
-        mockMvc.perform(get(ApiRoutes.AUTH + "/profile")
+        mockMvc.perform(get(ApiRoutes.USER + "/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(result -> {

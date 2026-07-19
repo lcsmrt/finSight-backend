@@ -1,6 +1,7 @@
 package com.lcs.finsight.config;
 
 import com.lcs.finsight.security.JwtAuthenticationFilter;
+import com.lcs.finsight.utils.ApiRoutes;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -43,10 +44,10 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(request -> request
-                        .requestMatchers(HttpMethod.POST, "/api/finsight/users").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/finsight/invitations/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, ApiRoutes.USER).permitAll()
+                        .requestMatchers(HttpMethod.GET, ApiRoutes.INVITATION + "/*").permitAll()
                         .requestMatchers(
-                                "/api/finsight/auth/login", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**"
+                                ApiRoutes.AUTH + "/login", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

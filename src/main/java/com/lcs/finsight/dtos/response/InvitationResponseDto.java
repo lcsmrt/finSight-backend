@@ -33,7 +33,7 @@ public class InvitationResponseDto {
                 ? InvitationStatus.EXPIRED
                 : invitation.getStatus();
         this.link = invitation.getType() == InvitationType.LINK
-                ? "/invitations/" + invitation.getToken()
+                ? "/invitation/" + invitation.getToken()
                 : null;
     }
 
