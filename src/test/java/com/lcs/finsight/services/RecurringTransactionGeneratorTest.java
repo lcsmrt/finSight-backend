@@ -4,6 +4,7 @@ import com.lcs.finsight.dtos.request.FinancialTransactionSeriesRequestDto;
 import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.Plan;
+import com.lcs.finsight.models.RecurrenceDefinition;
 import com.lcs.finsight.models.RecurrenceInterval;
 import com.lcs.finsight.models.RecurrenceMode;
 import com.lcs.finsight.models.SplitMode;
@@ -12,7 +13,10 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,7 +26,11 @@ import static org.mockito.Mockito.when;
 
 class RecurringTransactionGeneratorTest {
 
-    private final RecurringTransactionGenerator generator = new RecurringTransactionGenerator();
+    // Fixed "today" so open-ended horizon assertions are deterministic regardless of wall-clock time.
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(Instant.parse("2026-07-24T00:00:00Z"), ZoneOffset.UTC);
+
+    private final RecurringTransactionGenerator generator = new RecurringTransactionGenerator(FIXED_CLOCK);
 
     private final User user = userWithId(1L);
     private final User other = userWithId(2L);
@@ -260,5 +268,133 @@ class RecurringTransactionGeneratorTest {
             assertThat(tx.getParticipants().get(0).getMember().getId()).isEqualTo(user.getId());
             assertThat(tx.getParticipants().get(0).getShareAmount()).isEqualByComparingTo(amount);
         });
+    }
+
+    @Test
+    void recurringSeriesWithEndDateIgnoresClockAndProducesBoundedOutputUnchanged() {
+        // Regression: presence of an injected Clock must not alter bounded (endDate-present) output at all.
+        FinancialTransactionSeriesRequestDto dto = mock(FinancialTransactionSeriesRequestDto.class);
+        when(dto.getMode()).thenReturn(RecurrenceMode.RECURRING);
+        when(dto.getType()).thenReturn(FinancialTransactionType.DEBIT);
+        when(dto.getAmount()).thenReturn(amount);
+        when(dto.getDescription()).thenReturn("Gym membership");
+        when(dto.getInterval()).thenReturn(RecurrenceInterval.MONTHLY);
+        when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 1, 1));
+        when(dto.getEndDate()).thenReturn(LocalDate.of(2026, 12, 1));
+
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares);
+
+        assertThat(result).hasSize(12);
+        assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 1, 1));
+        assertThat(result.get(11).getStartDate()).isEqualTo(LocalDate.of(2026, 12, 1));
+    }
+
+    @Test
+    void openEndedRecurringSeriesGeneratesTwelveMonthHorizonFromToday() {
+        FinancialTransactionSeriesRequestDto dto = mock(FinancialTransactionSeriesRequestDto.class);
+        when(dto.getMode()).thenReturn(RecurrenceMode.RECURRING);
+        when(dto.getType()).thenReturn(FinancialTransactionType.DEBIT);
+        when(dto.getAmount()).thenReturn(amount);
+        when(dto.getDescription()).thenReturn("Streaming subscription");
+        when(dto.getInterval()).thenReturn(RecurrenceInterval.MONTHLY);
+        when(dto.getStartDate()).thenReturn(LocalDate.of(2026, 7, 24));
+        when(dto.getEndDate()).thenReturn(null);
+
+        List<FinancialTransaction> result = generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares);
+
+        // "today" is the fixed clock (2026-07-24); horizon = today + 12 months = 2027-07-24, inclusive.
+        assertThat(result).hasSize(13);
+        assertThat(result.get(0).getStartDate()).isEqualTo(LocalDate.of(2026, 7, 24));
+        assertThat(result.get(result.size() - 1).getStartDate()).isEqualTo(LocalDate.of(2027, 7, 24));
+        assertThat(result).allSatisfy(tx -> {
+            assertThat(tx.getEndDate()).isNull();
+            assertThat(tx.getParcelsNumber()).isNull();
+            assertThat(tx.getSeriesId()).isEqualTo(SERIES_ID);
+        });
+    }
+
+    @Test
+    void openEndedRecurringSeriesWithVeryOldStartHitsMaxOccurrencesGuard() {
+        FinancialTransactionSeriesRequestDto dto = mock(FinancialTransactionSeriesRequestDto.class);
+        when(dto.getMode()).thenReturn(RecurrenceMode.RECURRING);
+        when(dto.getType()).thenReturn(FinancialTransactionType.DEBIT);
+        when(dto.getAmount()).thenReturn(amount);
+        when(dto.getDescription()).thenReturn("Ancient subscription");
+        when(dto.getInterval()).thenReturn(RecurrenceInterval.MONTHLY);
+        when(dto.getStartDate()).thenReturn(LocalDate.of(2005, 1, 1));
+        when(dto.getEndDate()).thenReturn(null);
+
+        // Span from 2005-01-01 to horizon (2027-07-24, fixed clock + 12mo) is ~270 months, well past 120.
+        assertThatThrownBy(() -> generator.generate(dto, plan, user, null, SERIES_ID, SplitMode.EQUAL, selfShares))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("too many occurrences");
+    }
+
+    @Test
+    void forwardWindowGeneratesOnlyMonthsStrictlyAfterWatermarkThroughHorizon() {
+        RecurrenceDefinition def = openEndedDefinition(LocalDate.of(2026, 1, 1));
+
+        List<FinancialTransaction> result = generator.generateForwardWindow(
+                def, LocalDate.of(2026, 6, 1), LocalDate.of(2027, 1, 1), selfShares);
+
+        assertThat(result).extracting(FinancialTransaction::getStartDate).containsExactly(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 11, 1), LocalDate.of(2026, 12, 1),
+                LocalDate.of(2027, 1, 1));
+        assertThat(result).allSatisfy(tx -> {
+            assertThat(tx.getSeriesId()).isEqualTo(def.getSeriesId());
+            assertThat(tx.getRecurrenceDefinition()).isSameAs(def);
+            assertThat(tx.getParcelsNumber()).isNull();
+            assertThat(tx.getEndDate()).isNull();
+            assertThat(tx.getDescription()).isEqualTo(def.getDescription());
+        });
+    }
+
+    @Test
+    void forwardWindowSecondPassAfterAdvancingWatermarkProducesNoOverlap() {
+        RecurrenceDefinition def = openEndedDefinition(LocalDate.of(2026, 1, 1));
+
+        List<FinancialTransaction> firstPass = generator.generateForwardWindow(
+                def, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 9, 1), selfShares);
+        assertThat(firstPass).extracting(FinancialTransaction::getStartDate).containsExactly(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1));
+
+        LocalDate advancedWatermark = firstPass.get(firstPass.size() - 1).getStartDate();
+        List<FinancialTransaction> secondPass = generator.generateForwardWindow(
+                def, advancedWatermark, LocalDate.of(2026, 12, 1), selfShares);
+
+        assertThat(secondPass).extracting(FinancialTransaction::getStartDate).containsExactly(
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 11, 1), LocalDate.of(2026, 12, 1));
+
+        List<LocalDate> secondPassDates = secondPass.stream().map(FinancialTransaction::getStartDate).toList();
+        assertThat(firstPass).extracting(FinancialTransaction::getStartDate)
+                .doesNotContainAnyElementsOf(secondPassDates);
+    }
+
+    @Test
+    void forwardWindowHonorsMaxOccurrencesCapPerPass() {
+        RecurrenceDefinition def = openEndedDefinition(LocalDate.of(2000, 1, 1));
+
+        assertThatThrownBy(() -> generator.generateForwardWindow(
+                def, LocalDate.of(2000, 1, 1), LocalDate.of(2020, 1, 1), selfShares))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("too many occurrences");
+    }
+
+    private RecurrenceDefinition openEndedDefinition(LocalDate startDate) {
+        RecurrenceDefinition def = new RecurrenceDefinition();
+        def.setPlan(plan);
+        def.setCreatedBy(user);
+        def.setCategory(null);
+        def.setSeriesId(SERIES_ID);
+        def.setType(FinancialTransactionType.DEBIT);
+        def.setAmount(amount);
+        def.setDescription("Gym membership");
+        def.setMode(RecurrenceMode.RECURRING);
+        def.setRecurrenceInterval(RecurrenceInterval.MONTHLY);
+        def.setStartDate(startDate);
+        def.setEndDate(null);
+        def.setSplitMode(SplitMode.EQUAL);
+        return def;
     }
 }
