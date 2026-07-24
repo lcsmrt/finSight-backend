@@ -165,7 +165,6 @@ public class FinancialTransactionService {
         financialTransaction.setType(dto.getType());
         financialTransaction.setAmount(dto.getAmount());
         financialTransaction.setDescription(dto.getDescription());
-        financialTransaction.setFrequency(dto.getFrequency());
         financialTransaction.setParcelsNumber(dto.getParcelsNumber());
         financialTransaction.setStartDate(dto.getStartDate());
         financialTransaction.setEndDate(dto.getEndDate());
@@ -195,7 +194,6 @@ public class FinancialTransactionService {
         existingTransaction.setType(dto.getType());
         existingTransaction.setAmount(dto.getAmount());
         existingTransaction.setDescription(dto.getDescription());
-        existingTransaction.setFrequency(dto.getFrequency());
         existingTransaction.setParcelsNumber(dto.getParcelsNumber());
         existingTransaction.setStartDate(dto.getStartDate());
         existingTransaction.setEndDate(dto.getEndDate());

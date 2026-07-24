@@ -68,7 +68,6 @@ class RecurringTransactionGeneratorTest {
         assertThat(result).allSatisfy(tx -> {
             assertThat(tx.getAmount()).isEqualTo(amount);
             assertThat(tx.getParcelsNumber()).isEqualTo(12);
-            assertThat(tx.getFrequency()).isNull();
             assertThat(tx.getSeriesId()).isEqualTo(SERIES_ID);
             assertThat(tx.getCreatedBy()).isSameAs(user);
             assertThat(tx.getType()).isEqualTo(FinancialTransactionType.DEBIT);
@@ -173,7 +172,6 @@ class RecurringTransactionGeneratorTest {
         assertThat(result.get(11).getStartDate()).isEqualTo(LocalDate.of(2026, 12, 1));
 
         assertThat(result).allSatisfy(tx -> {
-            assertThat(tx.getFrequency()).isEqualTo("MONTHLY");
             assertThat(tx.getDescription()).isEqualTo("Gym membership");
             assertThat(tx.getParcelsNumber()).isNull();
             assertThat(tx.getEndDate()).isNull();

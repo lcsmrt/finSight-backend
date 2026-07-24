@@ -62,7 +62,6 @@ class SeriesEditIT extends AbstractIntegrationTest {
             assertThat(occ.get("amount").decimalValue()).isEqualByComparingTo("300.00");
             assertThat(occ.get("seriesId").asText()).isEqualTo(seriesId);
             assertThat(occ.get("parcelsNumber").asInt()).isEqualTo(6);
-            assertThat(occ.get("frequency").isNull()).isTrue();
         }
 
         JsonNode firstPersisted = fetchOccurrence(plan, owner, occurrences.get(0).get("id").asLong());
@@ -117,7 +116,6 @@ class SeriesEditIT extends AbstractIntegrationTest {
             JsonNode occ = occurrences.get(i);
             assertThat(occ.get("description").asText()).isEqualTo("Gym");
             assertThat(occ.get("startDate").asText()).isEqualTo(start.plusMonths(i).toString());
-            assertThat(occ.get("frequency").asText()).isEqualTo("MONTHLY");
             assertThat(occ.get("parcelsNumber").isNull()).isTrue();
         }
 

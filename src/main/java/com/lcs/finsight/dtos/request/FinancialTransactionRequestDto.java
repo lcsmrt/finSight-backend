@@ -25,7 +25,6 @@ public class FinancialTransactionRequestDto {
     @NotBlank(message = "Description cannot be blank.")
     private String description;
 
-    private String frequency;
     private Integer parcelsNumber;
 
     @NotNull(message = "Start date cannot be null.")
@@ -54,10 +53,6 @@ public class FinancialTransactionRequestDto {
 
     public String getDescription() {
         return description;
-    }
-
-    public String getFrequency() {
-        return frequency;
     }
 
     public Integer getParcelsNumber() {

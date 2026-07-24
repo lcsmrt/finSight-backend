@@ -107,7 +107,6 @@ class SeriesRegeneratorTest {
             tx.setDescription(description);
             tx.setStartDate(date);
             tx.setSplitMode(SplitMode.EQUAL);
-            tx.setFrequency("MONTHLY");
             occurrences.add(tx);
         }
         return occurrences;
@@ -191,7 +190,6 @@ class SeriesRegeneratorTest {
             assertThat(tx.getSeriesId()).isEqualTo(SERIES_ID);
             assertThat(tx.getRecurrenceDefinition()).isSameAs(def);
             assertThat(tx.getParcelsNumber()).isEqualTo(9);
-            assertThat(tx.getFrequency()).isNull();
             assertThat(tx.getParticipants()).hasSize(1);
         });
     }
@@ -232,7 +230,6 @@ class SeriesRegeneratorTest {
                 .containsExactly(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 8, 1));
         assertThat(result.toCreate()).allSatisfy(tx -> {
             assertThat(tx.getDescription()).isEqualTo("Gym");
-            assertThat(tx.getFrequency()).isEqualTo("MONTHLY");
             assertThat(tx.getParcelsNumber()).isNull();
             assertThat(tx.getRecurrenceDefinition()).isSameAs(def);
         });

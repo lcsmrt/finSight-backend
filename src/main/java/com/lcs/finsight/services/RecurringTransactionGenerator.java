@@ -48,7 +48,6 @@ public class RecurringTransactionGenerator {
                     dto.getStartDate().plusMonths(parcel - first), splitMode, participantShares);
             transaction.setDescription(dto.getDescription() + " (" + parcel + "/" + total + ")");
             transaction.setParcelsNumber(total);
-            transaction.setFrequency(null);
             occurrences.add(transaction);
         }
         return occurrences;
@@ -68,7 +67,6 @@ public class RecurringTransactionGenerator {
             FinancialTransaction transaction = baseTransaction(dto, plan, createdBy, category, seriesId, date, splitMode, participantShares);
             transaction.setDescription(dto.getDescription());
             transaction.setParcelsNumber(null);
-            transaction.setFrequency("MONTHLY");
             occurrences.add(transaction);
         }
         return occurrences;

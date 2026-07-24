@@ -38,7 +38,7 @@ public class SeriesRegenerator {
     }
 
     /** A single target slot computed from the (post-edit) recurrence definition template. */
-    private record TargetOccurrence(LocalDate date, String description, Integer parcelsNumber, String frequency) {
+    private record TargetOccurrence(LocalDate date, String description, Integer parcelsNumber) {
     }
 
     public SeriesEditResult reconcile(
@@ -98,7 +98,7 @@ public class SeriesRegenerator {
         for (int parcel = first; parcel <= total; parcel++) {
             LocalDate date = def.getStartDate().plusMonths(parcel - first);
             String description = def.getDescription() + " (" + parcel + "/" + total + ")";
-            targets.add(new TargetOccurrence(date, description, total, null));
+            targets.add(new TargetOccurrence(date, description, total));
         }
         return targets;
     }
@@ -106,7 +106,7 @@ public class SeriesRegenerator {
     private List<TargetOccurrence> buildRecurringTargets(RecurrenceDefinition def) {
         List<TargetOccurrence> targets = new ArrayList<>();
         for (LocalDate date = def.getStartDate(); !date.isAfter(def.getEndDate()); date = date.plusMonths(1)) {
-            targets.add(new TargetOccurrence(date, def.getDescription(), null, "MONTHLY"));
+            targets.add(new TargetOccurrence(date, def.getDescription(), null));
         }
         return targets;
     }
@@ -119,7 +119,6 @@ public class SeriesRegenerator {
         tx.setStartDate(slot.date());
         tx.setSplitMode(def.getSplitMode());
         tx.setParcelsNumber(slot.parcelsNumber());
-        tx.setFrequency(slot.frequency());
 
         reconcileParticipants(tx, shares);
     }

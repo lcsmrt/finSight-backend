@@ -37,7 +37,6 @@ public class FinancialTransaction {
     private BigDecimal amount;
     private String description;
     private String externalId;
-    private String frequency;
     @Column(name = "series_id")
     private String seriesId;
     private Integer parcelsNumber;
@@ -119,14 +118,6 @@ public class FinancialTransaction {
 
     public void setExternalId(String externalId) {
         this.externalId = externalId;
-    }
-
-    public String getFrequency() {
-        return frequency;
-    }
-
-    public void setFrequency(String frequency) {
-        this.frequency = frequency;
     }
 
     public String getSeriesId() {
