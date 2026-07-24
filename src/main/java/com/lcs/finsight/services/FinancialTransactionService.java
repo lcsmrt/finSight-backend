@@ -561,11 +561,11 @@ public class FinancialTransactionService {
         definition.setCategory(category);
         definition.setSplitMode(resolved.splitMode());
         definition.setParcelsNumber(dto.getParcelsNumber());
+        // Full-replace (matches the transaction PUT contract): a null endDate here means "make this
+        // RECURRING series open-ended," not "leave the bound unchanged" (P3, RMV2-09).
         definition.setEndDate(dto.getEndDate());
 
         reconcileDefinitionParticipants(definition, resolved.shares());
-
-        recurrenceDefinitionRepository.save(definition);
 
         LocalDate pivotDate = dto.getScope() == SeriesEditScope.ALL ? null : pivot.getStartDate();
 
@@ -578,6 +578,23 @@ public class FinancialTransactionService {
 
         List<FinancialTransaction> combined = new ArrayList<>(result.toUpdate());
         combined.addAll(result.toCreate());
+
+        // P3: keep generatedThrough in lockstep with the (possibly just toggled) endDate. Bounding
+        // (endDate now set) caps the watermark at the new endDate, which also stops the rolling
+        // top-up (its due-query only selects endDate IS NULL). Re-opening (endDate now null) just
+        // regenerated the series out to the rolling horizon via SeriesRegenerator's own open-ended
+        // fallback, so the watermark advances to the last occurrence that reconcile actually produced.
+        if (definition.getMode() == RecurrenceMode.RECURRING) {
+            LocalDate generatedThrough = definition.getEndDate() != null
+                    ? definition.getEndDate()
+                    : combined.stream()
+                            .map(FinancialTransaction::getStartDate)
+                            .max(LocalDate::compareTo)
+                            .orElse(definition.getGeneratedThrough());
+            definition.setGeneratedThrough(generatedThrough);
+        }
+
+        recurrenceDefinitionRepository.save(definition);
 
         return new FinancialTransactionSeriesResponseDto(combined);
     }

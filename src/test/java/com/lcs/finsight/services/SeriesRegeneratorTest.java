@@ -12,7 +12,10 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,7 +24,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SeriesRegeneratorTest {
 
-    private final SeriesRegenerator regenerator = new SeriesRegenerator();
+    // Fixed "today" so open-ended (null endDate) horizon assertions are deterministic regardless of
+    // wall-clock time, mirroring RecurringTransactionGeneratorTest's FIXED_CLOCK.
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(Instant.parse("2026-07-24T00:00:00Z"), ZoneOffset.UTC);
+
+    private final SeriesRegenerator regenerator = new SeriesRegenerator(FIXED_CLOCK);
 
     private final Plan plan = new Plan();
     private final User user = userWithId(1L);
@@ -254,6 +262,34 @@ class SeriesRegeneratorTest {
         assertThat(result.toDelete()).hasSize(3);
         assertThat(result.toDelete()).extracting(FinancialTransaction::getStartDate)
                 .containsExactly(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 5, 1), LocalDate.of(2026, 6, 1));
+    }
+
+    @Test
+    void recurringNullEndDateUnderAllExtendsToRollingHorizon() {
+        // P3 re-open: a null endDate on a RECURRING definition means open-ended, so the target list
+        // must fall back to the rolling 12-month horizon (from the injected FIXED_CLOCK's "today")
+        // instead of NPE-ing on def.getEndDate(). start's day-of-month (1) is preserved by the
+        // monthly stepping, so the last generated slot is the last day-1 date not after the horizon.
+        LocalDate start = LocalDate.of(2026, 1, 1);
+        LocalDate oldEnd = LocalDate.of(2026, 3, 1);
+        // FIXED_CLOCK's "today" is 2026-07-24 -> horizon cap 2027-07-24; the last day-1 slot not
+        // after that cap is 2027-07-01 (2027-08-01 would be after it).
+        LocalDate expectedLastGenerated = LocalDate.of(2027, 7, 1);
+        RecurrenceDefinition def = recurringDef("Gym", amount, start, null);
+        List<FinancialTransaction> existing = existingRecurring("Gym", amount, start, oldEnd);
+
+        SeriesRegenerator.SeriesEditResult result = regenerator.reconcile(
+                def, existing, shares, SeriesEditScope.ALL, null);
+
+        assertThat(result.toDelete()).isEmpty();
+        assertThat(result.toUpdate()).hasSize(3);
+        assertThat(result.toCreate()).extracting(FinancialTransaction::getStartDate)
+                .contains(expectedLastGenerated)
+                .doesNotContain(expectedLastGenerated.plusMonths(1));
+        assertThat(result.toCreate()).allSatisfy(tx -> {
+            assertThat(tx.getDescription()).isEqualTo("Gym");
+            assertThat(tx.getRecurrenceDefinition()).isSameAs(def);
+        });
     }
 
     @Test

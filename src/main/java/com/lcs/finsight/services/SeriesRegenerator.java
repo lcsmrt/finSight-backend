@@ -7,6 +7,7 @@ import com.lcs.finsight.models.SeriesEditScope;
 import com.lcs.finsight.models.TransactionParticipant;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -17,18 +18,33 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Pure, dependency-free reconciliation of a series' occurrences against its (already updated)
- * {@link RecurrenceDefinition} template. Given the definition's post-edit field values, the
- * series' existing occurrence rows, resolved participant shares, an edit scope and a pivot date,
- * computes which occurrences must be updated in place, created, or deleted — with position-derived
- * installment {@code k/N} relabeling.
+ * Pure, dependency-free (besides a {@link Clock}) reconciliation of a series' occurrences against
+ * its (already updated) {@link RecurrenceDefinition} template. Given the definition's post-edit
+ * field values, the series' existing occurrence rows, resolved participant shares, an edit scope
+ * and a pivot date, computes which occurrences must be updated in place, created, or deleted —
+ * with position-derived installment {@code k/N} relabeling.
  *
- * <p>Contains zero Spring/JPA dependencies so it can be exercised with plain JUnit, no DB, no context.
+ * <p>Contains zero Spring/JPA dependencies (only a {@link Clock}, plain JDK) so it can be exercised
+ * with plain JUnit, no DB, no context.
  */
 @Component
 public class SeriesRegenerator {
 
     private static final int MAX_OCCURRENCES = 120;
+
+    /**
+     * Rolling look-ahead horizon (in months) applied when a RECURRING definition's {@code endDate}
+     * is {@code null} (open-ended series, P3 re-opened via {@code editSeries}). Mirrors {@code
+     * RecurringTransactionGenerator.OPEN_ENDED_HORIZON_MONTHS} / {@code
+     * OpenEndedSeriesTopUpService.HORIZON_MONTHS}.
+     */
+    private static final int OPEN_ENDED_HORIZON_MONTHS = 12;
+
+    private final Clock clock;
+
+    public SeriesRegenerator(Clock clock) {
+        this.clock = clock;
+    }
 
     public record SeriesEditResult(
             List<FinancialTransaction> toUpdate,
@@ -104,8 +120,14 @@ public class SeriesRegenerator {
     }
 
     private List<TargetOccurrence> buildRecurringTargets(RecurrenceDefinition def) {
+        // A null endDate means the (re-)opened series is open-ended (P3, full-replace semantics):
+        // regenerate out to the rolling horizon, exactly as create-time generation would.
+        LocalDate effectiveEnd = def.getEndDate() != null
+                ? def.getEndDate()
+                : LocalDate.now(clock).plusMonths(OPEN_ENDED_HORIZON_MONTHS);
+
         List<TargetOccurrence> targets = new ArrayList<>();
-        for (LocalDate date = def.getStartDate(); !date.isAfter(def.getEndDate()); date = date.plusMonths(1)) {
+        for (LocalDate date = def.getStartDate(); !date.isAfter(effectiveEnd); date = date.plusMonths(1)) {
             targets.add(new TargetOccurrence(date, def.getDescription(), null));
         }
         return targets;

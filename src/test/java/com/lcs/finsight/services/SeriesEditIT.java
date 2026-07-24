@@ -1,6 +1,7 @@
 package com.lcs.finsight.services;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -8,13 +9,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lcs.finsight.models.FinancialTransaction;
 import com.lcs.finsight.models.Plan;
 import com.lcs.finsight.models.PlanRole;
+import com.lcs.finsight.models.RecurrenceDefinition;
 import com.lcs.finsight.models.User;
+import com.lcs.finsight.repositories.FinancialTransactionRepository;
+import com.lcs.finsight.repositories.RecurrenceDefinitionRepository;
 import com.lcs.finsight.support.AbstractIntegrationTest;
 import com.lcs.finsight.utils.ApiRoutes;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +45,17 @@ class SeriesEditIT extends AbstractIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private RecurrenceDefinitionRepository recurrenceDefinitionRepository;
+
+    @Autowired
+    private FinancialTransactionRepository financialTransactionRepository;
+
+    @Autowired
+    private OpenEndedSeriesTopUpService topUpService;
+
+    private static final int OPEN_ENDED_HORIZON_MONTHS = 12;
 
     @Test
     void installmentSeriesGeneratesPositionAnchoredLabelsThroughApi() throws Exception {
@@ -354,6 +371,123 @@ class SeriesEditIT extends AbstractIntegrationTest {
         assertThat(definition.get("endDate").asText()).isEqualTo(originalEnd.toString());
     }
 
+    @Test
+    void editingOpenEndedSeriesToSetEndDateBoundsItAndStopsTopUp() throws Exception {
+        User owner = fixtures.aUser();
+        Plan plan = fixtures.aPlan(owner);
+        LocalDate start = LocalDate.now();
+
+        // Open-ended (no endDate): materializes start..start+12mo, 13 occurrences.
+        JsonNode created = createSeries(plan, owner, openEndedRecurringBody("Streaming", "20.00", start));
+        String seriesId = created.get("seriesId").asText();
+        assertThat(created.get("count").asInt()).isEqualTo(OPEN_ENDED_HORIZON_MONTHS + 1);
+
+        LocalDate newEnd = start.plusMonths(3);
+        List<Long> beyondNewEndIds = new ArrayList<>();
+        for (JsonNode occ : created.get("occurrences")) {
+            if (LocalDate.parse(occ.get("startDate").asText()).isAfter(newEnd)) {
+                beyondNewEndIds.add(occ.get("id").asLong());
+            }
+        }
+        assertThat(beyondNewEndIds).isNotEmpty();
+
+        Map<String, Object> editBody = recurringEditBody("Streaming", "20.00", start, newEnd, "ALL");
+        JsonNode editResponse = editSeries(plan, owner, seriesId, editBody, status().isOk());
+
+        assertThat(editResponse.get("count").asInt()).isEqualTo(4);
+
+        for (Long id : beyondNewEndIds) {
+            mockMvc.perform(get(ApiRoutes.FINANCIAL_TRANSACTION + "/{id}", plan.getId(), id)
+                            .with(testAuthHelper.asUser(owner)))
+                    .andExpect(status().isNotFound());
+        }
+
+        RecurrenceDefinition definition = recurrenceDefinitionRepository.findByPlanAndSeriesId(plan, seriesId)
+                .orElseThrow();
+        assertThat(definition.getEndDate()).isEqualTo(newEnd);
+        assertThat(definition.getGeneratedThrough()).isEqualTo(newEnd);
+
+        // Bounded series are excluded entirely by the top-up due-query: firing it must not add rows
+        // (i.e. the dashboard's on-read top-up would not refill past the new bound either).
+        topUpService.topUp(plan, LocalDate.now());
+        JsonNode definitionAfterTopUp = fetchSeriesDefinition(plan, owner, seriesId);
+        assertThat(definitionAfterTopUp.get("endDate").asText()).isEqualTo(newEnd.toString());
+        for (int i = 0; i <= 3; i++) {
+            fetchOccurrence(plan, owner, created.get("occurrences").get(i).get("id").asLong());
+        }
+    }
+
+    @Test
+    void clearingEndDateOnBoundedRecurringSeriesReopensItAndExtendsToHorizon() throws Exception {
+        User owner = fixtures.aUser();
+        Plan plan = fixtures.aPlan(owner);
+        LocalDate start = LocalDate.now();
+        LocalDate originalEnd = start.plusMonths(2);
+
+        JsonNode created = createSeries(plan, owner, recurringBody("Car loan", "400.00", start, originalEnd));
+        String seriesId = created.get("seriesId").asText();
+        assertThat(created.get("count").asInt()).isEqualTo(3);
+
+        // Full-replace: omitting endDate on a RECURRING edit means "make it open-ended," not "leave
+        // the bound as-is" (P3).
+        Map<String, Object> editBody = recurringEditBody("Car loan", "400.00", start, null, "ALL");
+        JsonNode editResponse = editSeries(plan, owner, seriesId, editBody, status().isOk());
+
+        assertThat(editResponse.get("count").asInt()).isEqualTo(OPEN_ENDED_HORIZON_MONTHS + 1);
+        JsonNode occurrences = editResponse.get("occurrences");
+        assertThat(occurrences.get(occurrences.size() - 1).get("startDate").asText())
+                .isEqualTo(start.plusMonths(OPEN_ENDED_HORIZON_MONTHS).toString());
+
+        JsonNode definitionDto = fetchSeriesDefinition(plan, owner, seriesId);
+        assertThat(definitionDto.get("endDate").isNull()).isTrue();
+
+        RecurrenceDefinition definition = recurrenceDefinitionRepository.findByPlanAndSeriesId(plan, seriesId)
+                .orElseThrow();
+        assertThat(definition.getEndDate()).isNull();
+        assertThat(definition.getGeneratedThrough()).isEqualTo(start.plusMonths(OPEN_ENDED_HORIZON_MONTHS));
+
+        // Already topped up to the horizon by the edit itself: firing top-up again must be a no-op
+        // (idempotent), proving no duplicate occurrences and a stable watermark.
+        topUpService.topUp(plan, LocalDate.now());
+        List<FinancialTransaction> allOccurrences =
+                financialTransactionRepository.findAllByPlanAndSeriesId(plan, seriesId);
+        assertThat(allOccurrences).hasSize(OPEN_ENDED_HORIZON_MONTHS + 1);
+        RecurrenceDefinition reloaded = recurrenceDefinitionRepository.findByPlanAndSeriesId(plan, seriesId)
+                .orElseThrow();
+        assertThat(reloaded.getGeneratedThrough()).isEqualTo(start.plusMonths(OPEN_ENDED_HORIZON_MONTHS));
+    }
+
+    @Test
+    void deletingOpenEndedSeriesRemovesAllOccurrencesAndItsRecurrenceDefinition() throws Exception {
+        // Unchanged delete behavior (P3 done-when): deleteSeries never touches endDate/generatedThrough,
+        // so an open-ended series is deleted exactly like a bounded one — regression coverage only.
+        User owner = fixtures.aUser();
+        Plan plan = fixtures.aPlan(owner);
+        LocalDate start = LocalDate.now();
+
+        JsonNode created = createSeries(plan, owner, openEndedRecurringBody("Streaming", "20.00", start));
+        String seriesId = created.get("seriesId").asText();
+        assertThat(created.get("count").asInt()).isEqualTo(OPEN_ENDED_HORIZON_MONTHS + 1);
+
+        mockMvc.perform(delete(ApiRoutes.FINANCIAL_TRANSACTION + "/series/{seriesId}", plan.getId(), seriesId)
+                        .with(testAuthHelper.asUser(owner))
+                        .param("scope", "ALL"))
+                .andExpect(status().isNoContent());
+
+        for (JsonNode occ : created.get("occurrences")) {
+            mockMvc.perform(get(ApiRoutes.FINANCIAL_TRANSACTION + "/{id}", plan.getId(), occ.get("id").asLong())
+                            .with(testAuthHelper.asUser(owner)))
+                    .andExpect(status().isNotFound());
+        }
+
+        assertThat(recurrenceDefinitionRepository.findByPlanAndSeriesId(plan, seriesId)).isEmpty();
+        assertThat(financialTransactionRepository.findAllByPlanAndSeriesId(plan, seriesId)).isEmpty();
+
+        mockMvc.perform(get(ApiRoutes.FINANCIAL_TRANSACTION + "/series/{seriesId}", plan.getId(), seriesId)
+                        .with(testAuthHelper.asUser(owner)))
+                .andExpect(status().isNotFound());
+    }
+
     private Map<String, Object> installmentBody(
             String description, String amount, LocalDate start, int parcelsNumber, Integer currentParcel) {
         Map<String, Object> body = new LinkedHashMap<>();
@@ -380,6 +514,40 @@ class SeriesEditIT extends AbstractIntegrationTest {
         body.put("interval", "MONTHLY");
         body.put("endDate", end.toString());
         body.put("splitMode", "EQUAL");
+        return body;
+    }
+
+    /** Open-ended create body (P3): endDate omitted entirely, matching the frontend's "no end date" affordance. */
+    private Map<String, Object> openEndedRecurringBody(String description, String amount, LocalDate start) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("type", "DEBIT");
+        body.put("amount", new BigDecimal(amount));
+        body.put("description", description);
+        body.put("mode", "RECURRING");
+        body.put("startDate", start.toString());
+        body.put("interval", "MONTHLY");
+        body.put("splitMode", "EQUAL");
+        return body;
+    }
+
+    /**
+     * RECURRING series-edit body at the given scope; {@code endDate} is only included when
+     * non-null so a {@code null} exercises the P3 full-replace "clear it -> re-open" path.
+     */
+    private Map<String, Object> recurringEditBody(
+            String description, String amount, LocalDate start, LocalDate endDate, String scope) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("type", "DEBIT");
+        body.put("amount", new BigDecimal(amount));
+        body.put("description", description);
+        body.put("mode", "RECURRING");
+        body.put("startDate", start.toString());
+        body.put("interval", "MONTHLY");
+        if (endDate != null) {
+            body.put("endDate", endDate.toString());
+        }
+        body.put("splitMode", "EQUAL");
+        body.put("scope", scope);
         return body;
     }
 
