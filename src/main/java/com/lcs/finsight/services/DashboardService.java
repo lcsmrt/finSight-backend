@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -27,18 +28,26 @@ public class DashboardService {
     private final FinancialTransactionRepository financialTransactionRepository;
     private final FinancialTransactionCategoryRepository financialTransactionCategoryRepository;
     private final CategoryBreakdownAssembler categoryBreakdownAssembler;
+    private final OpenEndedSeriesTopUpService openEndedSeriesTopUpService;
+    private final Clock clock;
 
     public DashboardService(FinancialTransactionRepository financialTransactionRepository,
                              FinancialTransactionCategoryRepository financialTransactionCategoryRepository,
-                             CategoryBreakdownAssembler categoryBreakdownAssembler) {
+                             CategoryBreakdownAssembler categoryBreakdownAssembler,
+                             OpenEndedSeriesTopUpService openEndedSeriesTopUpService,
+                             Clock clock) {
         this.financialTransactionRepository = financialTransactionRepository;
         this.financialTransactionCategoryRepository = financialTransactionCategoryRepository;
         this.categoryBreakdownAssembler = categoryBreakdownAssembler;
+        this.openEndedSeriesTopUpService = openEndedSeriesTopUpService;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
     public DashboardSummaryResponseDto getSummary(DashboardFilterDto filter, PlanContext ctx) {
         Plan plan = ctx.getPlan();
+        openEndedSeriesTopUpService.topUp(plan, LocalDate.now(clock));
+
         LocalDate startDate = filter.getStartDate();
         LocalDate endDate = filter.getEndDate();
         Long memberId = filter.getMemberId();

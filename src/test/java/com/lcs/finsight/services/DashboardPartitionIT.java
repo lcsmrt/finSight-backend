@@ -7,15 +7,27 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lcs.finsight.models.FinancialTransaction;
+import com.lcs.finsight.models.FinancialTransactionCategory;
 import com.lcs.finsight.models.FinancialTransactionType;
 import com.lcs.finsight.models.Plan;
+import com.lcs.finsight.models.RecurrenceDefinition;
+import com.lcs.finsight.models.RecurrenceDefinitionParticipant;
+import com.lcs.finsight.models.RecurrenceInterval;
+import com.lcs.finsight.models.RecurrenceMode;
+import com.lcs.finsight.models.SplitMode;
 import com.lcs.finsight.models.User;
+import com.lcs.finsight.repositories.FinancialTransactionCategoryRepository;
+import com.lcs.finsight.repositories.FinancialTransactionRepository;
+import com.lcs.finsight.repositories.RecurrenceDefinitionRepository;
 import com.lcs.finsight.support.AbstractIntegrationTest;
 import com.lcs.finsight.utils.ApiRoutes;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -35,6 +47,15 @@ class DashboardPartitionIT extends AbstractIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private RecurrenceDefinitionRepository recurrenceDefinitionRepository;
+
+    @Autowired
+    private FinancialTransactionRepository financialTransactionRepository;
+
+    @Autowired
+    private FinancialTransactionCategoryRepository financialTransactionCategoryRepository;
 
     private static final LocalDate TODAY = LocalDate.now();
 
@@ -151,6 +172,110 @@ class DashboardPartitionIT extends AbstractIntegrationTest {
         assertThat(dashboardA.get("netBalance").decimalValue()).isEqualByComparingTo("300.00");
     }
 
+    /**
+     * Proves the D1 on-read trigger (RMV2-06/07, see {@code design.md}): a stale open-ended
+     * (mode = RECURRING, endDate = null) series is topped up as a side effect of the dashboard
+     * GET itself, its newly materialized rows are readable in that same response, the watermark
+     * advances, and — critically — none of this perturbs the AD-007 partition invariant already
+     * proven above for an unrelated itemized transaction in the same plan. The recurring series
+     * uses its own category so its contribution is trivially separable from the itemized one.
+     *
+     * <p>The definition's own dates are anchored on day-of-month 1 (independent of whatever day
+     * "today" happens to be) so the expected occurrence count is exact calendar-month arithmetic,
+     * regardless of month-length clamping around the real, injected {@code Clock}'s current date.
+     */
+    @Test
+    void openEndedSeriesTopUpDuringDashboardReadPreservesPartitionInvariant() throws Exception {
+        User owner = fixtures.aUser();
+        Plan plan = fixtures.aPlan(owner);
+
+        long groceriesId = createCategory(plan, owner, "DEBIT", "Groceries").get("id").asLong();
+        long foodId = createCategory(plan, owner, "DEBIT", "Food").get("id").asLong();
+        long cleaningId = createCategory(plan, owner, "DEBIT", "Cleaning").get("id").asLong();
+        long subscriptionsId = createCategory(plan, owner, "DEBIT", "Subscriptions").get("id").asLong();
+
+        Map<String, Object> body = Map.of(
+                "type", "DEBIT",
+                "amount", new BigDecimal("150.00"),
+                "description", "Grocery run",
+                "startDate", TODAY.toString(),
+                "categoryId", groceriesId,
+                "items", List.of(
+                        Map.of("description", "Food shopping", "amount", new BigDecimal("90.00"), "categoryId", foodId),
+                        Map.of("description", "Cleaning supplies", "amount", new BigDecimal("40.00"), "categoryId", cleaningId),
+                        Map.of("description", "Misc", "amount", new BigDecimal("10.00"))));
+        createTransaction(plan, owner, body);
+
+        FinancialTransactionCategory subscriptionsCategory = financialTransactionCategoryRepository
+                .findByIdAndPlan(subscriptionsId, plan).orElseThrow();
+
+        LocalDate anchorMonth = TODAY.withDayOfMonth(1);
+        LocalDate start = anchorMonth.minusMonths(6);
+        LocalDate staleGeneratedThrough = anchorMonth.minusMonths(2);
+        LocalDate expectedLastGenerated = anchorMonth.plusMonths(12);
+
+        RecurrenceDefinition definition = anOpenEndedDefinition(
+                plan, owner, subscriptionsCategory, start, "Streaming", new BigDecimal("30.00"));
+        definition.setGeneratedThrough(staleGeneratedThrough);
+        recurrenceDefinitionRepository.save(definition);
+
+        assertThat(financialTransactionRepository.findAllByPlanAndSeriesId(plan, definition.getSeriesId())).isEmpty();
+
+        JsonNode dashboard = fetchDashboard(plan, owner, start, TODAY.plusMonths(13));
+
+        List<FinancialTransaction> occurrences = financialTransactionRepository
+                .findAllByPlanAndSeriesId(plan, definition.getSeriesId());
+        // Top-up only materializes forward from the (stale) watermark — it never backfills the
+        // months between the series' start and that watermark, since those are assumed already
+        // persisted from the original creation flow (not seeded here, so none exist beforehand).
+        long expectedOccurrences = ChronoUnit.MONTHS.between(staleGeneratedThrough, expectedLastGenerated);
+        assertThat(occurrences).hasSize((int) expectedOccurrences);
+
+        RecurrenceDefinition reloaded = recurrenceDefinitionRepository.findById(definition.getId()).orElseThrow();
+        assertThat(reloaded.getGeneratedThrough()).isEqualTo(expectedLastGenerated);
+
+        JsonNode breakdown = dashboard.get("categoryBreakdown");
+        assertThat(categorySpent(breakdown, "Groceries")).isEqualByComparingTo("20.00");
+        assertThat(categorySpent(breakdown, "Food")).isEqualByComparingTo("90.00");
+        assertThat(categorySpent(breakdown, "Cleaning")).isEqualByComparingTo("40.00");
+
+        BigDecimal partitionedSum = categorySpent(breakdown, "Groceries")
+                .add(categorySpent(breakdown, "Food"))
+                .add(categorySpent(breakdown, "Cleaning"));
+        assertThat(partitionedSum).isEqualByComparingTo("150.00");
+
+        BigDecimal expectedSubscriptionsSpent = new BigDecimal("30.00").multiply(BigDecimal.valueOf(expectedOccurrences));
+        assertThat(categorySpent(breakdown, "Subscriptions")).isEqualByComparingTo(expectedSubscriptionsSpent);
+
+        BigDecimal expectedTotalExpenses = new BigDecimal("150.00").add(expectedSubscriptionsSpent);
+        assertThat(dashboard.get("totalExpenses").decimalValue()).isEqualByComparingTo(expectedTotalExpenses);
+    }
+
+    private RecurrenceDefinition anOpenEndedDefinition(Plan plan, User owner, FinancialTransactionCategory category,
+                                                         LocalDate start, String description, BigDecimal amount) {
+        RecurrenceDefinition definition = new RecurrenceDefinition();
+        definition.setPlan(plan);
+        definition.setCreatedBy(owner);
+        definition.setCategory(category);
+        definition.setSeriesId(UUID.randomUUID().toString());
+        definition.setType(FinancialTransactionType.DEBIT);
+        definition.setAmount(amount);
+        definition.setDescription(description);
+        definition.setMode(RecurrenceMode.RECURRING);
+        definition.setRecurrenceInterval(RecurrenceInterval.MONTHLY);
+        definition.setStartDate(start);
+        definition.setEndDate(null);
+        definition.setSplitMode(SplitMode.EQUAL);
+
+        RecurrenceDefinitionParticipant participant = new RecurrenceDefinitionParticipant();
+        participant.setDefinition(definition);
+        participant.setMember(owner);
+        participant.setShareAmount(amount);
+        definition.getParticipants().add(participant);
+
+        return recurrenceDefinitionRepository.save(definition);
+    }
+
     private JsonNode createCategory(Plan plan, User asUser, String type, String description) throws Exception {
         String requestBody = objectMapper.writeValueAsString(Map.of(
                 "type", type,
@@ -180,10 +305,14 @@ class DashboardPartitionIT extends AbstractIntegrationTest {
     }
 
     private JsonNode fetchDashboard(Plan plan, User asUser) throws Exception {
+        return fetchDashboard(plan, asUser, TODAY.minusDays(1), TODAY.plusDays(1));
+    }
+
+    private JsonNode fetchDashboard(Plan plan, User asUser, LocalDate startDate, LocalDate endDate) throws Exception {
         MvcResult result = mockMvc.perform(get(ApiRoutes.DASHBOARD, plan.getId())
                         .with(testAuthHelper.asUser(asUser))
-                        .param("startDate", TODAY.minusDays(1).toString())
-                        .param("endDate", TODAY.plusDays(1).toString()))
+                        .param("startDate", startDate.toString())
+                        .param("endDate", endDate.toString()))
                 .andExpect(status().isOk())
                 .andReturn();
 
