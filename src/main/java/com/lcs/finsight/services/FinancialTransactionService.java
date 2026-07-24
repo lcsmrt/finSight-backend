@@ -342,9 +342,8 @@ public class FinancialTransactionService {
             if (dto.getInterval() == null) {
                 throw new IllegalArgumentException("Interval is required for recurring series.");
             }
-            if (dto.getEndDate() == null) {
-                throw new IllegalArgumentException("End date is required for recurring series.");
-            }
+            // endDate is optional: null means open-ended (materialized on a rolling horizon, see
+            // RecurringTransactionGenerator.OPEN_ENDED_HORIZON_MONTHS / generatedThrough below).
             dateUtils.checkIfStartDateIsBeforeEndDate(dto.getStartDate(), dto.getEndDate());
         }
 
@@ -381,6 +380,9 @@ public class FinancialTransactionService {
         definition.setStartDate(dto.getStartDate());
         definition.setEndDate(dto.getEndDate());
         definition.setSplitMode(resolvedParticipants.splitMode());
+        if (dto.getMode() == RecurrenceMode.RECURRING && !occurrences.isEmpty()) {
+            definition.setGeneratedThrough(occurrences.get(occurrences.size() - 1).getStartDate());
+        }
 
         for (ResolvedParticipant share : resolvedParticipants.shares()) {
             RecurrenceDefinitionParticipant participant = new RecurrenceDefinitionParticipant();
